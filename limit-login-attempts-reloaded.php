@@ -5,9 +5,9 @@ Description: Block excessive login attempts and protect your site against brute 
 Author: Limit Login Attempts Reloaded
 Author URI: https://www.limitloginattempts.com/
 Text Domain: limit-login-attempts-reloaded
-Version: 2.26.27
+Version: 2.26.28
 
-Copyright 2008 - 2012 Johan Eenfeldt, 2016 - 2023 Limit Login Attempts Reloaded
+Copyright 2008-2012 Johan Eenfeldt, 2016–present Limit Login Attempts Reloaded
 */
 
 if( !defined( 'ABSPATH' ) ) exit;
@@ -41,4 +41,87 @@ if( file_exists( LLA_PLUGIN_DIR . 'autoload.php' ) ) {
 	add_action( 'plugins_loaded', function() {
 		(new LLAR\Core\LimitLoginAttempts());
 	}, 9999 );
+
+	/**
+	 * Activation hook: Cleanup old cron events and transients
+	 */
+	register_activation_hook( __FILE__, 'llar_mfa_activation_cleanup' );
+
+	function llar_mfa_activation_cleanup() {
+		// Clear old rescue transients
+		llar_mfa_cleanup_rescue_transients();
+
+		// Schedule daily cleanup if not already scheduled
+		if ( ! wp_next_scheduled( 'llar_mfa_daily_cleanup' ) ) {
+			wp_schedule_event( time(), 'daily', 'llar_mfa_daily_cleanup' );
+		}
+	}
+
+	/**
+	 * Deactivation hook: Cleanup cron events and transients (CRITICAL)
+	 */
+	register_deactivation_hook( __FILE__, 'llar_mfa_deactivation_cleanup' );
+
+	function llar_mfa_deactivation_cleanup() {
+		// Clear all scheduled events
+		wp_clear_scheduled_hook( 'llar_mfa_daily_cleanup' );
+
+		// Clear all rescue transients
+		llar_mfa_cleanup_rescue_transients();
+	}
+
+	/**
+	 * Daily cleanup: Remove old transients (prevents DB accumulation)
+	 */
+	add_action( 'llar_mfa_daily_cleanup', 'llar_mfa_daily_cleanup' );
+
+	function llar_mfa_daily_cleanup() {
+		global $wpdb;
+
+		// Delete all transients older than 1 day
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} 
+				 WHERE option_name LIKE %s 
+				 AND option_value < %d",
+				$wpdb->esc_like( '_transient_llar_rescue_' ) . '%',
+				time() - DAY_IN_SECONDS
+			)
+		);
+
+		// Also delete timeout transients
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} 
+				 WHERE option_name LIKE %s 
+				 AND option_value < %d",
+				$wpdb->esc_like( '_transient_timeout_llar_rescue_' ) . '%',
+				time() - DAY_IN_SECONDS
+			)
+		);
+	}
+
+	/**
+	 * Helper function: Cleanup rescue transients
+	 */
+	function llar_mfa_cleanup_rescue_transients() {
+		global $wpdb;
+
+		// Delete all rescue transients
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} 
+				 WHERE option_name LIKE %s",
+				$wpdb->esc_like( '_transient_llar_rescue_' ) . '%'
+			)
+		);
+
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} 
+				 WHERE option_name LIKE %s",
+				$wpdb->esc_like( '_transient_timeout_llar_rescue_' ) . '%'
+			)
+		);
+	}
 }

@@ -1,0 +1,621 @@
+<?php
+
+namespace LLAR\Core;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+class MfaController {
+
+	/**
+	 * Flag to show rescue popup (set when MFA is enabled without codes)
+	 *
+	 * @var bool
+	 */
+	public $show_rescue_popup = false;
+
+	/**
+	 * Prepared roles for MFA tab (with translated and sanitized names)
+	 *
+	 * @var array
+	 */
+	public $prepared_roles = array();
+
+	/**
+	 * Editable roles data for MFA tab (for admin role check)
+	 *
+	 * @var array
+	 */
+	public $editable_roles = array();
+
+	/**
+	 * Register all hooks
+	 */
+	public function register() {
+		// WordPress AJAX for generating rescue codes
+		add_action( 'wp_ajax_llar_mfa_generate_rescue_codes', array( $this, 'ajax_generate_rescue_codes' ) );
+
+		// Register query var for public endpoint
+		add_filter( 'query_vars', array( $this, 'add_query_vars' ) );
+
+		// Handle public rescue endpoint
+		add_action( 'template_redirect', array( $this, 'handle_rescue_endpoint' ) );
+
+		// Display message on login page when MFA is disabled
+		add_filter( 'login_message', array( $this, 'display_mfa_disabled_message' ) );
+
+		// Enqueue scripts and styles for MFA tab
+		// Use priority 1000 to ensure LimitLoginAttempts::enqueue() (priority 999) runs first
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ), 1000 );
+	}
+
+	/**
+	 * Add query var for rescue code (standard WordPress way)
+	 *
+	 * @param array $vars Existing query vars
+	 * @return array Modified query vars
+	 */
+	public function add_query_vars( $vars ) {
+		$vars[] = 'llar_rescue';
+		return $vars;
+	}
+
+	/**
+	 * Generate 10 rescue codes (64 characters each, alphanumeric)
+	 * Returns plain codes for file generation, stores hashes in Config
+	 *
+	 * @return array Plain codes (for file generation only)
+	 */
+	public function generate_rescue_codes() {
+		$codes       = array();
+		$plain_codes = array(); // Temporary array for file
+
+		for ( $i = 0; 10 > $i; $i++ ) {
+			// Generate cryptographically secure random code
+			// 64 characters alphanumeric = ~384 bits of entropy
+			$code = wp_generate_password( 64, false ); // alphanumeric
+
+			// Hash with bcrypt (includes unique salt automatically)
+			$hash = wp_hash_password( $code );
+
+			// Validate hash was generated successfully
+			if ( empty( $hash ) || 20 > strlen( $hash ) ) {
+				// Fallback: log error and skip this code
+				error_log( 'LLAR MFA: Failed to hash rescue code. Skipping code generation.' );
+				continue;
+			}
+
+			$codes[]       = array(
+				'hash'    => $hash,
+				'used'    => false,
+				'used_at' => null,
+			);
+			$plain_codes[] = $code; // Save for file (only in memory)
+		}
+
+		// Ensure we have at least some codes generated
+		if ( empty( $codes ) ) {
+			wp_send_json_error( array( 'message' => __( 'Failed to generate rescue codes. Please try again.', 'limit-login-attempts-reloaded' ) ) );
+			return array();
+		}
+
+		// Replace old codes with new ones
+		Config::update( 'mfa_rescue_codes', $codes );
+		return $plain_codes; // Return plain codes for file generation (only in memory)
+	}
+
+	/**
+	 * WordPress AJAX callback for generating rescue codes
+	 */
+	public function ajax_generate_rescue_codes() {
+		// Check user capabilities first
+		$this->check_user_capabilities();
+
+		// Check nonce (standard WordPress way)
+		// Use check_ajax_referer with die=false to handle errors gracefully
+		if ( ! check_ajax_referer( 'limit-login-attempts-options', 'nonce', false ) ) {
+			wp_send_json_error( array( 'message' => __( 'Security check failed. Please refresh the page and try again.', 'limit-login-attempts-reloaded' ) ) );
+			return;
+		}
+
+		// Generate codes (returns plain codes)
+		try {
+			$plain_codes = $this->generate_rescue_codes();
+		} catch ( \Exception $e ) {
+			wp_send_json_error( array( 'message' => __( 'Failed to generate codes: ', 'limit-login-attempts-reloaded' ) . $e->getMessage() ) );
+			return;
+		}
+
+		if ( empty( $plain_codes ) || ! is_array( $plain_codes ) ) {
+			wp_send_json_error( array( 'message' => __( 'Failed to generate rescue codes. Please try again.', 'limit-login-attempts-reloaded' ) ) );
+			return;
+		}
+
+		// Generate rescue URLs for display
+		$rescue_urls = array();
+		foreach ( $plain_codes as $code ) {
+			$rescue_urls[] = $this->get_rescue_url( $code );
+		}
+
+		// Generate HTML content for PDF generation
+		try {
+			$html_content = $this->generate_rescue_file_html( $plain_codes );
+		} catch ( \Exception $e ) {
+			wp_send_json_error( array( 'message' => __( 'Failed to generate PDF content: ', 'limit-login-attempts-reloaded' ) . $e->getMessage() ) );
+			return;
+		}
+
+		// Generate token for download confirmation (optional, for logging)
+		$download_token = wp_generate_password( 32, false );
+		Config::update( 'mfa_rescue_download_token', $download_token );
+
+		// Enable MFA
+		Config::update( 'mfa_enabled', 1 );
+
+		// Clear transient checkbox state since MFA is now saved
+		delete_transient( 'llar_mfa_checkbox_state' );
+
+		// Plain codes are removed from memory after this block
+		// URLs and HTML content are returned in response
+
+		// Standard WordPress way to send JSON response
+		wp_send_json_success(
+			array(
+			'rescue_urls'  => $rescue_urls, // URLs for display
+			'html_content' => $html_content, // HTML for PDF generation
+			'domain'       => wp_parse_url( home_url(), PHP_URL_HOST ),
+			)
+		);
+	}
+
+	/**
+	 * Check user capabilities (supports Multisite)
+	 */
+	private function check_user_capabilities() {
+		// Support Multisite: in network sites manage_options is super admin right
+		if ( is_multisite() ) {
+			if ( ! is_super_admin() ) {
+				wp_send_json_error( array( 'message' => 'Insufficient permissions' ) );
+			}
+		} elseif ( ! current_user_can( 'manage_options' ) ) {
+				wp_send_json_error( array( 'message' => 'Insufficient permissions' ) );
+		}
+	}
+
+	/**
+	 * Get client IP address (with proxy and CDN support)
+	 *
+	 * @return string Client IP address
+	 */
+	private function get_client_ip() {
+		$ip_keys = array( 'HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR' );
+		foreach ( $ip_keys as $key ) {
+			if ( ! empty( $_SERVER[ $key ] ) ) {
+				$ip = sanitize_text_field( wp_unslash( $_SERVER[ $key ] ) );
+				// For X-Forwarded-For take first IP
+				if ( false !== strpos( $ip, ',' ) ) {
+					$ip = trim( explode( ',', $ip )[0] );
+				}
+				return $ip;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Handle public rescue endpoint
+	 * Uses standard WordPress query vars mechanism
+	 */
+	public function handle_rescue_endpoint() {
+		// Get hash_id instead of plain code (security)
+		$hash_id = get_query_var( 'llar_rescue' );
+		if ( empty( $hash_id ) ) {
+			return; // Query var not set, exit
+		}
+
+		// Rate limiting: protection against brute force attacks (required for production)
+		// Increased blocking period to 1 hour for better security
+		$client_ip = $this->get_client_ip();
+
+		// Use SHA-256 instead of MD5 for rate limiting key
+		$salt_for_rate_limit = defined( 'AUTH_SALT' ) ? AUTH_SALT : ( defined( 'NONCE_SALT' ) ? NONCE_SALT : wp_generate_password( 64, true ) );
+		$transient_key       = 'llar_rescue_attempts_' . hash( 'sha256', $client_ip . $salt_for_rate_limit );
+		$attempts            = get_transient( $transient_key );
+		$attempts            = ( false !== $attempts ) ? $attempts : 0;
+
+		if ( 5 <= $attempts ) { // Limit: 5 attempts per period
+			wp_die( 'Too many attempts. Please try again later.', 'LLAR MFA Rescue', array( 'response' => 429 ) );
+		}
+
+		// Increment counter on each check (even invalid)
+		set_transient( $transient_key, $attempts + 1, HOUR_IN_SECONDS ); // Block for 1 hour (not 5 minutes!)
+
+		// Validate hash_id format (SHA-256 produces 64 hex characters)
+		if ( ! preg_match( '/^[a-f0-9]{64}$/i', $hash_id ) ) {
+			wp_die( 'Invalid rescue link format', 'LLAR MFA Rescue', array( 'response' => 403 ) );
+		}
+
+		// Get plain code from transient by hash_id
+		$transient_rescue_key = 'llar_rescue_' . sanitize_text_field( $hash_id );
+		$plain_code           = get_transient( $transient_rescue_key );
+
+		if ( false === $plain_code ) {
+			// Hash not found or expired (one-time, 5 minutes)
+			// Don't reveal whether hash was invalid or expired (security best practice)
+			wp_die( 'Invalid or expired rescue link', 'LLAR MFA Rescue', array( 'response' => 403 ) );
+		}
+
+		// Delete transient immediately after getting (one-time use)
+		delete_transient( $transient_rescue_key );
+
+		// Verify code with constant-time comparison to prevent timing attacks
+		$codes = Config::get( 'mfa_rescue_codes', array() );
+
+		if ( ! is_array( $codes ) || empty( $codes ) ) {
+			wp_die( 'Invalid rescue code', 'LLAR MFA Rescue', array( 'response' => 403 ) );
+		}
+
+		$code_verified  = false;
+		$verified_index = null;
+
+		// Check all codes to prevent timing attacks (always check same number of codes)
+		foreach ( $codes as $index => $code_data ) {
+			if ( ! isset( $code_data['hash'] ) || ! isset( $code_data['used'] ) ) {
+				continue;
+			}
+
+			// Skip already used codes
+			if ( true === $code_data['used'] ) {
+				continue;
+			}
+
+			// Use constant-time password verification
+			if ( wp_check_password( $plain_code, $code_data['hash'] ) ) {
+				$code_verified  = true;
+				$verified_index = $index;
+				break; // Found valid code, can exit early
+			}
+		}
+
+		if ( $code_verified && null !== $verified_index ) {
+			// Mark as used
+			$codes[ $verified_index ]['used']    = true;
+			$codes[ $verified_index ]['used_at'] = time();
+			Config::update( 'mfa_rescue_codes', $codes );
+
+			// Disable MFA for an hour
+			$this->disable_mfa_temporarily();
+
+			// Redirect to wp-login.php with success message
+			$login_url = add_query_arg( 'llar_mfa_disabled', '1', wp_login_url() );
+			wp_safe_redirect( $login_url );
+			exit;
+		}
+
+		// Code not found or already used - same error message (don't reveal which)
+		wp_die( 'Invalid rescue code', 'LLAR MFA Rescue', array( 'response' => 403 ) );
+	}
+
+	/**
+	 * Display message on login page when MFA is temporarily disabled
+	 *
+	 * @param string $message Existing login message
+	 * @return string Modified login message
+	 */
+	public function display_mfa_disabled_message( $message ) {
+		// Check if parameter is set
+		if ( ! isset( $_GET['llar_mfa_disabled'] ) || '1' !== $_GET['llar_mfa_disabled'] ) {
+			return $message;
+		}
+
+		// Add success message about MFA being disabled (English message as requested)
+		$mfa_message  = '<div class="message llar-mfa-disabled-message">';
+		$mfa_message .= '<p>' . esc_html__( 'Multi-factor authentication has been temporarily disabled for 1 hour.', 'limit-login-attempts-reloaded' ) . '</p>';
+		$mfa_message .= '</div>';
+
+		return $message . $mfa_message;
+	}
+
+	/**
+	 * Disable MFA temporarily (for 1 hour)
+	 */
+	public function disable_mfa_temporarily() {
+		Config::update( 'mfa_enabled', 0 );
+
+		// Check if transient already exists (MFA already disabled)
+		$existing_transient = get_transient( 'llar_mfa_temporarily_disabled' );
+		if ( false !== $existing_transient ) {
+			// MFA is already disabled, don't reduce the timeout
+			return;
+		}
+
+		// Set transient for 1 hour (automatically expires)
+		set_transient( 'llar_mfa_temporarily_disabled', 1, HOUR_IN_SECONDS );
+	}
+
+	/**
+	 * Check if MFA is temporarily disabled via rescue code
+	 *
+	 * @return bool True if MFA is temporarily disabled
+	 */
+	public function is_mfa_temporarily_disabled() {
+		$disabled = get_transient( 'llar_mfa_temporarily_disabled' );
+
+		if ( false === $disabled ) {
+			// Transient expired - automatically re-enable MFA
+			$mfa_enabled = Config::get( 'mfa_enabled', false );
+			if ( ! $mfa_enabled ) {
+				// MFA was disabled via rescue code, re-enable it now
+				Config::update( 'mfa_enabled', 1 );
+			}
+			return false;
+		}
+
+		return true;
+	}
+
+
+	/**
+	 * Check if rescue popup should be shown
+	 *
+	 * @return bool True if popup should be shown
+	 */
+	public function should_show_rescue_popup() {
+		$codes = Config::get( 'mfa_rescue_codes', array() );
+
+		if ( ! is_array( $codes ) ) {
+			$codes = array();
+		}
+
+		// Show popup if no codes exist or all codes are used
+		if ( empty( $codes ) ) {
+			return true;
+		}
+		// Check if all codes are used
+		$all_used = true;
+		foreach ( $codes as $code_data ) {
+			if ( ! isset( $code_data['used'] ) || true !== $code_data['used'] ) {
+				$all_used = false;
+				break;
+			}
+		}
+		return $all_used;
+	}
+
+	/**
+	 * Cleanup rescue codes when MFA is disabled
+	 */
+	public function cleanup_rescue_codes() {
+		// Delete all rescue codes
+		Config::delete( 'mfa_rescue_codes' );
+
+		// Clear temporary token
+		Config::delete( 'mfa_rescue_download_token' );
+
+		// Clear temporary disable transient
+		delete_transient( 'llar_mfa_temporarily_disabled' );
+	}
+
+	/**
+	 * Generate HTML file with rescue links
+	 *
+	 * @param array $plain_codes Plain rescue codes
+	 * @return string HTML content
+	 */
+	public function generate_rescue_file_html( $plain_codes ) {
+		$site_url = home_url();
+		$domain   = wp_parse_url( $site_url, PHP_URL_HOST );
+
+		// Generate rescue URLs
+		$rescue_urls = array();
+		foreach ( $plain_codes as $code ) {
+			$rescue_urls[] = $this->get_rescue_url( $code );
+		}
+
+		// Load PDF template with variables
+		ob_start();
+		include LLA_PLUGIN_DIR . 'views/mfa-rescue-pdf.php';
+		$html = ob_get_clean();
+
+		return $html;
+	}
+
+	/**
+	 * Get rescue URL for a code
+	 * Generates one-time hash instead of plain code (security)
+	 *
+	 * @param string $plain_code Plain rescue code
+	 * @return string Rescue URL with hash
+	 */
+	public function get_rescue_url( $plain_code ) {
+		// Generate one-time hash instead of plain code
+		// Require AUTH_SALT or NONCE_SALT for security (no static fallback)
+		if ( ! defined( 'AUTH_SALT' ) && ! defined( 'NONCE_SALT' ) ) {
+			// Log error but don't break - use cryptographically secure random instead
+			error_log( 'LLAR MFA: AUTH_SALT or NONCE_SALT not defined in wp-config.php. Using secure random fallback.' );
+			$salt = wp_generate_password( 64, true ); // Generate secure random salt
+		} else {
+			$salt = defined( 'AUTH_SALT' ) ? AUTH_SALT : NONCE_SALT;
+		}
+
+		// Use SHA-256 instead of MD5 for better security
+		// Add random suffix instead of time() for better unpredictability
+		$random_suffix = wp_generate_password( 32, false ); // Additional randomness
+		$hash_id       = hash( 'sha256', $plain_code . $salt . $random_suffix );
+
+		// Save plain code in temporary transient (5 minutes, one-time)
+		$transient_key = 'llar_rescue_' . $hash_id;
+		set_transient( $transient_key, $plain_code, 300 ); // 5 minutes
+
+		// URL contains only hash, not plain code
+		return add_query_arg( 'llar_rescue', $hash_id, home_url() );
+	}
+
+	/**
+	 * Enqueue scripts and styles for MFA tab
+	 */
+	public function enqueue_scripts() {
+		// Only on LLAR admin pages
+		if ( ! isset( $_GET['page'] ) || 'limit-login-attempts' !== $_GET['page'] ) {
+			return;
+		}
+
+		$current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'settings';
+		if ( 'mfa' !== $current_tab ) {
+			return;
+		}
+
+		// Check if script is registered (should be registered by LimitLoginAttempts::enqueue() at priority 999)
+		if ( ! wp_script_is( 'lla-main', 'registered' ) ) {
+			return;
+		}
+
+		// Create nonce for MFA code generation
+		$mfa_generate_codes = wp_create_nonce( 'limit-login-attempts-options' );
+
+		// Get existing llar_vars data to merge (WordPress overwrites, doesn't merge)
+		global $wp_scripts;
+		$existing_data = array();
+		if ( isset( $wp_scripts->registered['lla-main']->extra['data'] ) ) {
+			// Parse existing data (it's a string like "var llar_vars = {...};")
+			$existing_data_string = $wp_scripts->registered['lla-main']->extra['data'];
+			// Extract JSON from the string
+			if ( preg_match( '/var\s+llar_vars\s*=\s*({.*?});/s', $existing_data_string, $matches ) ) {
+				$existing_data = json_decode( $matches[1], true );
+				if ( ! is_array( $existing_data ) ) {
+					$existing_data = array();
+				}
+			}
+		}
+
+		// Merge existing data with MFA-specific data
+		$merged_data = array_merge(
+			$existing_data,
+			array(
+			'nonce_mfa_generate_codes' => $mfa_generate_codes,
+			'ajax_url'                 => admin_url( 'admin-ajax.php' ),
+			)
+		);
+
+		// Add MFA-specific data to localized script (merged with existing data)
+		wp_localize_script( 'lla-main', 'llar_vars', $merged_data );
+
+		// Enqueue PDF libraries only on MFA tab (admin only, to avoid loading on frontend)
+		wp_enqueue_script( 'html2canvas', 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', array(), '1.4.1', true );
+		wp_enqueue_script( 'jspdf', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', array(), '2.5.1', true );
+	}
+
+	/**
+	 * Handle MFA settings form submission
+	 *
+	 * @param bool $has_capability Whether user has required capability
+	 * @return bool True if popup should be shown, false otherwise
+	 */
+	public function handle_settings_submission( $has_capability ) {
+		// Check if this is MFA settings form
+		if ( ! isset( $_POST['llar_update_mfa_settings'] ) ) {
+			return false;
+		}
+
+		check_admin_referer( 'limit-login-attempts-options' );
+
+		// Check user capabilities
+		if ( ! $has_capability ) {
+			wp_die( esc_html( __( 'You do not have sufficient permissions to access this page.', 'limit-login-attempts-reloaded' ) ) );
+		}
+
+		// Handle MFA enabled/disabled
+		if ( isset( $_POST['mfa_enabled'] ) && $_POST['mfa_enabled'] ) {
+			// Check if rescue popup should be shown
+			if ( $this->should_show_rescue_popup() ) {
+				// Don't save MFA yet, show popup via JavaScript
+				// MFA will be saved after file download via WordPress AJAX
+				// Set flag for JavaScript
+				$this->show_rescue_popup = true;
+				// Store checkbox state in transient so it persists after page reload
+				set_transient( 'llar_mfa_checkbox_state', 1, 300 ); // 5 minutes
+				return true;
+			} else {
+				// Codes already exist, just save MFA
+				Config::update( 'mfa_enabled', 1 );
+				// Clear transient if exists
+				delete_transient( 'llar_mfa_checkbox_state' );
+			}
+		} else {
+			// Disabling MFA - cleanup codes
+			$this->cleanup_rescue_codes();
+			Config::update( 'mfa_enabled', 0 );
+			// Clear transient if exists
+			delete_transient( 'llar_mfa_checkbox_state' );
+		}
+
+		// Save selected roles - use editable roles and optimize validation
+		$mfa_roles = array();
+		if ( isset( $_POST['mfa_roles'] ) && is_array( $_POST['mfa_roles'] ) && ! empty( $_POST['mfa_roles'] ) ) {
+			// Get editable roles (cached by WordPress on request level)
+			$editable_roles     = get_editable_roles();
+			$editable_role_keys = array_keys( $editable_roles );
+
+			// Sanitize and filter roles - remove empty values and validate against editable roles
+			$sanitized_roles = array_filter(
+				array_map( 'sanitize_text_field', wp_unslash( (array) $_POST['mfa_roles'] ) ),
+				'strlen' // Remove empty strings
+			);
+
+			// Validate against editable roles only
+			$mfa_roles = array_intersect( $sanitized_roles, $editable_role_keys );
+		}
+		Config::update( 'mfa_roles', $mfa_roles );
+
+		return false;
+	}
+
+	/**
+	 * Prepare roles data for MFA tab
+	 * Should be called before including view to ensure data is ready
+	 */
+	public function prepare_roles_data() {
+		// Get editable roles and prepare translated names with sanitization
+		$editable_roles = get_editable_roles();
+		$prepared_roles = array();
+		foreach ( $editable_roles as $role_key => $role_data ) {
+			// Sanitize translated role name for security
+			$prepared_roles[ $role_key ] = esc_html( translate_user_role( $role_data['name'] ) );
+		}
+		// Store for view
+		$this->prepared_roles = $prepared_roles;
+		$this->editable_roles = $editable_roles;
+	}
+
+	/**
+	 * Get MFA settings for view
+	 *
+	 * @return array Array with mfa_enabled, mfa_temporarily_disabled, mfa_roles, prepared_roles, editable_roles, show_rescue_popup
+	 */
+	public function get_settings_for_view() {
+		$mfa_enabled_raw          = Config::get( 'mfa_enabled', false );
+		$mfa_temporarily_disabled = $this->is_mfa_temporarily_disabled();
+		$mfa_checkbox_state       = get_transient( 'llar_mfa_checkbox_state' );
+
+		// MFA is considered enabled if it's enabled in config AND not temporarily disabled
+		// OR if checkbox state is stored (popup is shown)
+		$mfa_enabled = ( $mfa_enabled_raw && ! $mfa_temporarily_disabled ) || ( 1 === $mfa_checkbox_state );
+
+		$mfa_roles = Config::get( 'mfa_roles', array() );
+
+		// Ensure $mfa_roles is always an array
+		if ( ! is_array( $mfa_roles ) ) {
+			$mfa_roles = array();
+		}
+
+		return array(
+			'mfa_enabled'              => $mfa_enabled,
+			'mfa_temporarily_disabled' => $mfa_temporarily_disabled,
+			'mfa_roles'                => $mfa_roles,
+			'prepared_roles'           => $this->prepared_roles,
+			'editable_roles'           => $this->editable_roles,
+			'show_rescue_popup'        => $this->show_rescue_popup,
+		);
+	}
+}
