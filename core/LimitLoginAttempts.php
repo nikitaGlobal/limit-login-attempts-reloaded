@@ -63,6 +63,13 @@ class LimitLoginAttempts
 	private $info_data = array();
 
 	/**
+	 * MFA Controller instance
+	 *
+	 * @var MfaController
+	 */
+	private $mfa_controller = null;
+
+	/**
 	 * Class instance accessible in other classes
 	 *
 	 * @var LimitLoginAttempts
@@ -76,6 +83,27 @@ class LimitLoginAttempts
 	 */
 	public static $capabilities = 'llar_admin';
 	public $has_capability = false;
+
+	/**
+	 * Allowed tabs for options page
+	 */
+	public static $allowed_tabs = array( 'logs-local', 'logs-custom', 'settings', 'mfa', 'debug', 'premium', 'help' );
+
+	/**
+	 * Check if a role is an admin role
+	 *
+	 * @param string $role_key Role key (e.g., 'administrator')
+	 * @param string $role_name Role display name (e.g., 'Administrator') - optional, for fallback check
+	 * @return bool True if role is admin-related
+	 */
+	public static function is_admin_role( $role_key, $role_name = '' ) {
+		// Primary check: exact match for administrator role
+		if ( $role_key === 'administrator' ) {
+			return true;
+		}
+		// Fallback: check if 'admin' appears in key or name (for custom admin roles)
+		return ( stripos( $role_key, 'admin' ) !== false || ( ! empty( $role_name ) && stripos( $role_name, 'admin' ) !== false ) );
+	}
 
 	private $plans = array(
 		'default'       => array(
@@ -114,6 +142,10 @@ class LimitLoginAttempts
 		$this->hooks_init();
 		$this->setup();
 		$this->cloud_app_init();
+
+		// Initialize MFA Controller
+		$this->mfa_controller = new MfaController();
+		$this->mfa_controller->register();
 
 		( new Shortcodes() )->register();
 		( new Ajax() )->register();
@@ -854,6 +886,11 @@ class LimitLoginAttempts
 				'id'    => 'settings',
 				'name'  => __( 'Settings', 'limit-login-attempts-reloaded' ),
 				'url'   => '&tab=settings'
+			),
+			array(
+				'id'    => 'mfa',
+				'name'  => __( '2FA', 'limit-login-attempts-reloaded' ),
+				'url'   => '&tab=mfa'
 			),
 			$is_cloud_app_enabled
 				? array(
@@ -2117,7 +2154,30 @@ class LimitLoginAttempts
 				}
 				$this->show_message( __( 'Settings saved.', 'limit-login-attempts-reloaded' ) );
 				$this->cloud_app_init();
+			} elseif ( isset( $_POST[ 'llar_update_mfa_settings' ] ) ) {
+				// Handle MFA settings submission via controller
+				if ( $this->mfa_controller ) {
+					$saved = $this->mfa_controller->handle_settings_submission( $this->has_capability );
+					if ( $saved ) {
+						$this->show_message( __( '2FA settings saved.', 'limit-login-attempts-reloaded' ) );
+					}
+				}
 			}
+		}
+
+		// Prepare roles data for MFA tab (before including view to ensure data is ready)
+		// Check if we're on MFA tab (GET or POST with tab parameter, or default after form submit)
+		$current_tab = 'settings';
+		if ( isset( $_GET['tab'] ) && in_array( $_GET['tab'], self::$allowed_tabs ) ) {
+			$current_tab = sanitize_text_field( $_GET['tab'] );
+		} elseif ( isset( $_POST['llar_update_mfa_settings'] ) ) {
+			// After MFA form submit, we're still on MFA tab
+			$current_tab = 'mfa';
+		}
+		
+		if ( $current_tab === 'mfa' && $this->mfa_controller ) {
+			// Prepare roles data via controller
+			$this->mfa_controller->prepare_roles_data();
 		}
 
 		include_once( LLA_PLUGIN_DIR . 'views/options-page.php' );
@@ -2536,5 +2596,6 @@ class LimitLoginAttempts
 
 		return $errors;
 	}
+
 }
 
