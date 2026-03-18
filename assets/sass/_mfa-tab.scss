@@ -1,0 +1,18 @@
+// MFA Tab Styles
+// Minimal styles using common selector to reduce CSS duplication
+.llar-admin {
+	.llar-mfa-roles-list {
+		margin-top: 12px;
+
+		.llar-mfa-role-item {
+			margin-bottom: 8px;
+
+			.llar-role-recommended {
+				color: $primary-colors__orange;
+				font-size: 13px;
+				font-style: italic;
+				margin-left: 4px;
+			}
+		}
+	}
+}
