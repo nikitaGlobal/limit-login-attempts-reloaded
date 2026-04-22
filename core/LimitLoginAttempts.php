@@ -3123,6 +3123,48 @@ class LimitLoginAttempts
 	}
 
 	/**
+	 * Show warning when MFA is enabled but rescue-link transients are missing.
+	 *
+	 * @return bool
+	 */
+	public function should_show_mfa_recovery_links_expired_notice() {
+		if ( ! (bool) Config::get( 'mfa_enabled' ) ) {
+			return false;
+		}
+
+		$seconds_left = $this->get_mfa_rescue_links_seconds_left();
+		if ( null === $seconds_left ) {
+			return true;
+		}
+
+		return $seconds_left <= MfaConstants::RESCUE_NOTICE_THRESHOLD;
+	}
+
+	/**
+	 * Return seconds left until the latest rescue-link transient expiration.
+	 *
+	 * @return int|null Null when rescue transients are absent.
+	 */
+	private function get_mfa_rescue_links_seconds_left() {
+		global $wpdb;
+
+		$timeout_like = $wpdb->esc_like( '_transient_timeout_' . MfaConstants::TRANSIENT_RESCUE_PREFIX ) . '%';
+
+		$max_timeout = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT MAX(CAST(option_value AS UNSIGNED)) FROM ' . $wpdb->options . ' WHERE option_name LIKE %s',
+				$timeout_like
+			)
+		);
+
+		if ( 0 === $max_timeout ) {
+			return null;
+		}
+
+		return $max_timeout - time();
+	}
+
+	/**
 	 * Return non-LLAR callbacks attached to authenticate filter.
 	 *
 	 * When the owning plugin cannot be resolved (empty plugin metadata), we still want to warn

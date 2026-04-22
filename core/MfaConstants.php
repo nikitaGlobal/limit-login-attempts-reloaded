@@ -20,8 +20,11 @@ class MfaConstants {
 	/** @var int Maximum rescue link verification attempts per IP per hour */
 	const MAX_ATTEMPTS = LLA_MFA_MAX_ATTEMPTS;
 
-	/** @var int Rescue link TTL in seconds (5 minutes) */
+	/** @var int Rescue link TTL in seconds (1 year by default) */
 	const RESCUE_LINK_TTL = LLA_MFA_RESCUE_LINK_TTL;
+
+	/** @var int Show notice when rescue links expire within this many seconds (5 days) */
+	const RESCUE_NOTICE_THRESHOLD = LLA_MFA_RESCUE_NOTICE_THRESHOLD;
 
 	/** @var int MFA temporary disable duration in seconds (1 hour) */
 	const MFA_DISABLE_DURATION = LLA_MFA_DISABLE_DURATION;
