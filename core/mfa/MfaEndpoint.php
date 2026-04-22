@@ -38,8 +38,10 @@ class MfaEndpoint implements MfaEndpointInterface {
 	}
 
 	/**
-	 * Handle rescue endpoint request. Global cooldown: one use per RESCUE_USE_COOLDOWN seconds (default 1 min).
-	 * Then validates hash_id, decrypts, verifies code, disables MFA and redirects, or wp_die.
+	 * Handle rescue endpoint request. After a successful rescue, a global endpoint cooldown applies
+	 * (TRANSIENT_RESCUE_LAST_USE, RESCUE_USE_COOLDOWN) so any follow-up request is rate-limited.
+	 * Format is validated first; cooldown is set only on success in set_rescue_cooldown().
+	 * Then decrypts, verifies code, temporarily disables MFA, or wp_die.
 	 *
 	 * @param string $hash_id Hash ID from URL (llar_rescue query var).
 	 * @return void
@@ -49,7 +51,7 @@ class MfaEndpoint implements MfaEndpointInterface {
 		if ( false === $hash_id ) {
 			wp_die( self::MSG_ERROR, 'LLAR MFA Rescue', array( 'response' => 403 ) );
 		}
-		if ( $this->is_rescue_cooldown( $hash_id ) ) {
+		if ( $this->is_rescue_cooldown() ) {
 			wp_die( self::MSG_TOO_MANY_REQUESTS, 'LLAR MFA Rescue', array( 'response' => 429 ) );
 		}
 
@@ -89,7 +91,7 @@ class MfaEndpoint implements MfaEndpointInterface {
 			Config::update( 'mfa_rescue_codes', $codes );
 			$this->disable_mfa_temporarily();
 			// Set cooldown only on success so failed attempts (invalid link, already used) don't block retries.
-			$this->set_rescue_cooldown( $hash_id );
+			$this->set_rescue_cooldown();
 			$login_url = add_query_arg( 'llar_mfa_disabled', '1', wp_login_url() );
 			wp_safe_redirect( $login_url );
 			exit;
@@ -160,33 +162,23 @@ class MfaEndpoint implements MfaEndpointInterface {
 	}
 
 	/**
-	 * Whether rescue endpoint is in cooldown (one use per RESCUE_USE_COOLDOWN seconds, globally).
+	 * Whether the rescue endpoint is in global cooldown (set after a successful use).
 	 *
-	 * @return bool True if last use was within cooldown.
+	 * @return bool
 	 */
-	private function is_rescue_cooldown( $hash_id ) {
-		return false !== get_transient( $this->get_rescue_cooldown_key( $hash_id ) );
+	private function is_rescue_cooldown() {
+		return false !== get_transient( MfaConstants::TRANSIENT_RESCUE_LAST_USE );
 	}
 
 	/**
-	 * Set rescue endpoint cooldown (transient expires after TTL seconds).
+	 * Set global rescue endpoint cooldown (called only after successful code verification).
 	 *
 	 * @param int|null $ttl TTL in seconds; default MfaConstants::RESCUE_USE_COOLDOWN.
 	 * @return void
 	 */
-	private function set_rescue_cooldown( $hash_id, $ttl = null ) {
+	private function set_rescue_cooldown( $ttl = null ) {
 		$ttl = ( null !== $ttl ) ? (int) $ttl : (int) MfaConstants::RESCUE_USE_COOLDOWN;
-		set_transient( $this->get_rescue_cooldown_key( $hash_id ), 1, $ttl );
-	}
-
-	/**
-	 * Build a cooldown transient key per rescue hash.
-	 *
-	 * @param string $hash_id Validated rescue hash.
-	 * @return string
-	 */
-	private function get_rescue_cooldown_key( $hash_id ) {
-		return MfaConstants::TRANSIENT_RESCUE_LAST_USE . '_' . substr( $hash_id, 0, 16 );
+		set_transient( MfaConstants::TRANSIENT_RESCUE_LAST_USE, 1, $ttl );
 	}
 
 	private function disable_mfa_temporarily() {

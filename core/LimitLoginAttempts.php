@@ -3123,7 +3123,9 @@ class LimitLoginAttempts
 	}
 
 	/**
-	 * Show warning when MFA is enabled but rescue-link transients are missing.
+	 * Show warning when MFA is enabled and rescue links need attention: no rescue payload transients,
+	 * or latest payload expiry is within RESCUE_NOTICE_THRESHOLD. Uses a short-lived cache for the
+	 * max-expiry query to avoid scanning wp_options on every admin page load.
 	 *
 	 * @return bool
 	 */
@@ -3142,10 +3144,24 @@ class LimitLoginAttempts
 
 	/**
 	 * Return seconds left until the latest rescue-link transient expiration.
+	 * Result is cached (see MfaConstants::RESCUE_MAX_EXPIRY_CACHE_*) to limit repeated LIKE queries on wp_options.
 	 *
 	 * @return int|null Null when rescue transients are absent.
 	 */
 	private function get_mfa_rescue_links_seconds_left() {
+		$cache_key = MfaConstants::RESCUE_MAX_EXPIRY_CACHE_KEY;
+		$cached    = get_transient( $cache_key );
+
+		if ( false !== $cached && is_numeric( $cached ) ) {
+			$max_timeout = (int) $cached;
+			if ( -1 === $max_timeout ) {
+				return null;
+			}
+			if ( 0 < $max_timeout ) {
+				return $max_timeout - time();
+			}
+		}
+
 		global $wpdb;
 
 		$timeout_like = $wpdb->esc_like( '_transient_timeout_' . MfaConstants::TRANSIENT_RESCUE_PREFIX ) . '%';
@@ -3156,6 +3172,9 @@ class LimitLoginAttempts
 				$timeout_like
 			)
 		);
+
+		$cache_value = 0 === $max_timeout ? -1 : $max_timeout;
+		set_transient( $cache_key, $cache_value, MfaConstants::RESCUE_MAX_EXPIRY_CACHE_TTL );
 
 		if ( 0 === $max_timeout ) {
 			return null;

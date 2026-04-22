@@ -20,11 +20,21 @@ class MfaConstants {
 	/** @var int Maximum rescue link verification attempts per IP per hour */
 	const MAX_ATTEMPTS = LLA_MFA_MAX_ATTEMPTS;
 
-	/** @var int Rescue link TTL in seconds (1 year by default) */
+	/** @var int Rescue link transient TTL in seconds (default: LLA_MFA_RESCUE_LINK_TTL, typically 10 years). One-time use is enforced by consuming the payload, not by this TTL expiring first. */
 	const RESCUE_LINK_TTL = LLA_MFA_RESCUE_LINK_TTL;
 
-	/** @var int Show notice when rescue links expire within this many seconds (5 days) */
+	/**
+	 * Show mfa-recovery-links-expired notice when max rescue transient expiry is within this many seconds
+	 * (e.g. 5 days). If LLA_MFA_RESCUE_LINK_TTL is very long, the "missing payload" branch is the main
+	 * practical case for regeneration; the near-expiry branch matters late in the TTL window.
+	 */
 	const RESCUE_NOTICE_THRESHOLD = LLA_MFA_RESCUE_NOTICE_THRESHOLD;
+
+	/** @var string Transient key for cached MAX(transient_timeout) query used by the admin notice (avoid repeated LIKE scans on wp_options). */
+	const RESCUE_MAX_EXPIRY_CACHE_KEY = 'llar_mfa_rescue_max_expiry_v1';
+
+	/** @var int Cache TTL in seconds for RESCUE_MAX_EXPIRY_CACHE_KEY. */
+	const RESCUE_MAX_EXPIRY_CACHE_TTL = 120;
 
 	/** @var int MFA temporary disable duration in seconds (1 hour) */
 	const MFA_DISABLE_DURATION = LLA_MFA_DISABLE_DURATION;

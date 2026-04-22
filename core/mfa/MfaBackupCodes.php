@@ -199,6 +199,7 @@ class MfaBackupCodes implements MfaBackupCodesInterface {
 		// This allows atomic, single-use consumption on the endpoint side.
 		$transient_key = MfaConstants::TRANSIENT_RESCUE_PREFIX . $hash_id;
 		set_transient( $transient_key, $encrypted, MfaConstants::RESCUE_LINK_TTL );
+		delete_transient( MfaConstants::RESCUE_MAX_EXPIRY_CACHE_KEY );
 		return add_query_arg( 'llar_rescue', $hash_id, home_url() );
 	}
 
