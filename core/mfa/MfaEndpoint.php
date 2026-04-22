@@ -158,6 +158,9 @@ class MfaEndpoint implements MfaEndpointInterface {
 			)
 		);
 
+		// Max-expiry for admin notice is cached; payload removal changes MAX( timeout ) — bust stale cache.
+		delete_transient( MfaConstants::RESCUE_MAX_EXPIRY_CACHE_KEY );
+
 		return $encrypted_data;
 	}
 

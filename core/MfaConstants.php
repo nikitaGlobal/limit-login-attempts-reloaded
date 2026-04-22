@@ -17,9 +17,6 @@ class MfaConstants {
 	/** @var int Number of rescue codes to generate */
 	const CODE_COUNT = LLA_MFA_CODE_COUNT;
 
-	/** @var int Maximum rescue link verification attempts per IP per hour */
-	const MAX_ATTEMPTS = LLA_MFA_MAX_ATTEMPTS;
-
 	/** @var int Rescue link transient TTL in seconds (default: LLA_MFA_RESCUE_LINK_TTL, typically 10 years). One-time use is enforced by consuming the payload, not by this TTL expiring first. */
 	const RESCUE_LINK_TTL = LLA_MFA_RESCUE_LINK_TTL;
 
@@ -47,9 +44,6 @@ class MfaConstants {
 
 	/** @var string Transient key prefix for rescue codes */
 	const TRANSIENT_RESCUE_PREFIX = LLA_MFA_TRANSIENT_RESCUE_PREFIX;
-
-	/** @var string Transient key prefix for rescue attempts rate limiting. @deprecated Rescue limit is now global via TRANSIENT_RESCUE_LAST_USE. */
-	const TRANSIENT_ATTEMPTS_PREFIX = LLA_MFA_TRANSIENT_ATTEMPTS_PREFIX;
 
 	/** @var string Transient key for last rescue endpoint use (global cooldown, one use per RESCUE_USE_COOLDOWN seconds). */
 	const TRANSIENT_RESCUE_LAST_USE = LLA_MFA_TRANSIENT_RESCUE_LAST_USE;
