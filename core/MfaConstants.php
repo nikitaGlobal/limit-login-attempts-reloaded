@@ -39,13 +39,18 @@ class MfaConstants {
 	/** @var int Rate limiting period for rescue attempts (1 hour). @deprecated Use RESCUE_USE_COOLDOWN for rescue endpoint. */
 	const RATE_LIMIT_PERIOD = LLA_MFA_RATE_LIMIT_PERIOD;
 
-	/** @var int Minimum seconds between two rescue endpoint uses (cooldown). Default 60 = one use per minute. */
+	/**
+	 * @var int Kept for wp-config / backward compatibility. Global post-success rescue cooldown was removed;
+	 *      protection is one-time transients and per-code used flags.
+	 */
 	const RESCUE_USE_COOLDOWN = LLA_MFA_RESCUE_USE_COOLDOWN;
 
 	/** @var string Transient key prefix for rescue codes */
 	const TRANSIENT_RESCUE_PREFIX = LLA_MFA_TRANSIENT_RESCUE_PREFIX;
 
-	/** @var string Transient key for last rescue endpoint use (global cooldown, one use per RESCUE_USE_COOLDOWN seconds). */
+	/**
+	 * @var string Transient name reserved in wp-config; no longer set by the plugin (legacy global cooldown removed).
+	 */
 	const TRANSIENT_RESCUE_LAST_USE = LLA_MFA_TRANSIENT_RESCUE_LAST_USE;
 
 	/** @var string Transient key for MFA temporary disable */
