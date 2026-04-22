@@ -45,13 +45,12 @@ class MfaEndpoint implements MfaEndpointInterface {
 	 * @return void
 	 */
 	public function handle( $hash_id ) {
-		if ( $this->is_rescue_cooldown() ) {
-			wp_die( self::MSG_TOO_MANY_REQUESTS, 'LLAR MFA Rescue', array( 'response' => 429 ) );
-		}
-
 		$hash_id = MfaValidator::validate_rescue_hash_id( $hash_id );
 		if ( false === $hash_id ) {
 			wp_die( self::MSG_ERROR, 'LLAR MFA Rescue', array( 'response' => 403 ) );
+		}
+		if ( $this->is_rescue_cooldown( $hash_id ) ) {
+			wp_die( self::MSG_TOO_MANY_REQUESTS, 'LLAR MFA Rescue', array( 'response' => 429 ) );
 		}
 
 		// Atomically consume encrypted payload for this hash_id (prevents double-spend).
@@ -90,7 +89,7 @@ class MfaEndpoint implements MfaEndpointInterface {
 			Config::update( 'mfa_rescue_codes', $codes );
 			$this->disable_mfa_temporarily();
 			// Set cooldown only on success so failed attempts (invalid link, already used) don't block retries.
-			$this->set_rescue_cooldown();
+			$this->set_rescue_cooldown( $hash_id );
 			$login_url = add_query_arg( 'llar_mfa_disabled', '1', wp_login_url() );
 			wp_safe_redirect( $login_url );
 			exit;
@@ -165,8 +164,8 @@ class MfaEndpoint implements MfaEndpointInterface {
 	 *
 	 * @return bool True if last use was within cooldown.
 	 */
-	private function is_rescue_cooldown() {
-		return false !== get_transient( MfaConstants::TRANSIENT_RESCUE_LAST_USE );
+	private function is_rescue_cooldown( $hash_id ) {
+		return false !== get_transient( $this->get_rescue_cooldown_key( $hash_id ) );
 	}
 
 	/**
@@ -175,9 +174,19 @@ class MfaEndpoint implements MfaEndpointInterface {
 	 * @param int|null $ttl TTL in seconds; default MfaConstants::RESCUE_USE_COOLDOWN.
 	 * @return void
 	 */
-	private function set_rescue_cooldown( $ttl = null ) {
+	private function set_rescue_cooldown( $hash_id, $ttl = null ) {
 		$ttl = ( null !== $ttl ) ? (int) $ttl : (int) MfaConstants::RESCUE_USE_COOLDOWN;
-		set_transient( MfaConstants::TRANSIENT_RESCUE_LAST_USE, 1, $ttl );
+		set_transient( $this->get_rescue_cooldown_key( $hash_id ), 1, $ttl );
+	}
+
+	/**
+	 * Build a cooldown transient key per rescue hash.
+	 *
+	 * @param string $hash_id Validated rescue hash.
+	 * @return string
+	 */
+	private function get_rescue_cooldown_key( $hash_id ) {
+		return MfaConstants::TRANSIENT_RESCUE_LAST_USE . '_' . substr( $hash_id, 0, 16 );
 	}
 
 	private function disable_mfa_temporarily() {
