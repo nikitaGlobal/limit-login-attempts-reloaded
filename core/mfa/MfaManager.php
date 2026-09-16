@@ -4,6 +4,10 @@ namespace LLAR\Core\Mfa;
 
 use LLAR\Core\Config;
 use LLAR\Core\MfaConstants;
+use LLAR\Core\Mfa\RescuePayloadStorage\RescuePayloadOptionsStorage;
+use LLAR\Core\Mfa\RescuePayloadStorage\RescuePayloadStorageInterface;
+use LLAR\Core\Mfa\RescuePayloadStorage\RescuePayloadStorageSelector;
+use LLAR\Core\Mfa\RescuePayloadStorage\RescuePayloadTransientStorage;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -14,6 +18,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Uses MfaBackupCodes, MfaEndpoint, MfaSettings, MfaValidator (4 dependencies).
  */
 class MfaManager {
+	/** Pending rescue codes transient lifetime (seconds). */
+	const PENDING_RESCUE_CODES_TTL = 1800;
 
 	public $show_rescue_popup = false;
 	public $prepared_roles    = array();
@@ -25,18 +31,129 @@ class MfaManager {
 	private $endpoint;
 	/** @var MfaSettingsInterface */
 	private $settings;
+	/** @var RescuePayloadStorageInterface */
+	private $payload_storage;
+
+	/**
+	 * Build per-user transient key for pending rescue hashes.
+	 *
+	 * @param int $user_id Current user ID.
+	 * @return string
+	 */
+	private function get_pending_rescue_codes_key( $user_id ) {
+		return 'llar_mfa_pending_rescue_codes_' . (int) $user_id;
+	}
+
+	/**
+	 * Save pending rescue hashes for current user until settings are confirmed.
+	 *
+	 * @param array $codes Hashed rescue codes.
+	 * @return void
+	 */
+	private function set_pending_rescue_codes( $codes ) {
+		$user_id = get_current_user_id();
+		if ( 0 >= (int) $user_id || empty( $codes ) || ! is_array( $codes ) ) {
+			return;
+		}
+		set_transient( $this->get_pending_rescue_codes_key( $user_id ), $codes, self::PENDING_RESCUE_CODES_TTL );
+	}
+
+	/**
+	 * Read pending rescue hashes for current user.
+	 *
+	 * @return array
+	 */
+	private function get_pending_rescue_codes() {
+		$user_id = get_current_user_id();
+		if ( 0 >= (int) $user_id ) {
+			return array();
+		}
+		$codes = get_transient( $this->get_pending_rescue_codes_key( $user_id ) );
+		return is_array( $codes ) ? $codes : array();
+	}
+
+	/**
+	 * Remove pending rescue hashes for current user.
+	 *
+	 * @return void
+	 */
+	private function delete_pending_rescue_codes() {
+		$user_id = get_current_user_id();
+		if ( 0 >= (int) $user_id ) {
+			return;
+		}
+		delete_transient( $this->get_pending_rescue_codes_key( $user_id ) );
+	}
+
+	/**
+	 * Extract validated llar_rescue token from a full rescue URL.
+	 *
+	 * @param string $url Rescue URL (query may include llar_rescue).
+	 * @return string Validated token or ''.
+	 */
+	private function get_rescue_hash_from_rescue_url( $url ) {
+		if ( ! is_string( $url ) || '' === $url ) {
+			return '';
+		}
+		$q = wp_parse_url( $url, PHP_URL_QUERY );
+		if ( ! is_string( $q ) || '' === $q ) {
+			return '';
+		}
+		parse_str( $q, $qp );
+		if ( empty( $qp['llar_rescue'] ) || ! is_string( $qp['llar_rescue'] ) ) {
+			return '';
+		}
+		$validated = MfaValidator::validate_rescue_hash_id( $qp['llar_rescue'] );
+		return false === $validated ? '' : $validated;
+	}
 
 	/**
 	 * Constructor. Dependencies are injected for testability and single responsibility.
 	 *
-	 * @param MfaBackupCodesInterface $backup_codes Backup/rescue codes service.
-	 * @param MfaEndpointInterface    $endpoint    Rescue endpoint handler.
-	 * @param MfaSettingsInterface   $settings    MFA settings service.
+	 * @param MfaBackupCodesInterface              $backup_codes    Backup/rescue codes service.
+	 * @param MfaEndpointInterface                 $endpoint        Rescue endpoint handler.
+	 * @param MfaSettingsInterface                 $settings        MFA settings service.
+	 * @param RescuePayloadStorageInterface|null $payload_storage Rescue payload storage (no type hint on param: PHP 8.4 implicit-null deprecation; validated below).
 	 */
-	public function __construct( MfaBackupCodesInterface $backup_codes, MfaEndpointInterface $endpoint, MfaSettingsInterface $settings ) {
-		$this->backup_codes = $backup_codes;
-		$this->endpoint     = $endpoint;
-		$this->settings     = $settings;
+	public function __construct( MfaBackupCodesInterface $backup_codes, MfaEndpointInterface $endpoint, MfaSettingsInterface $settings, $payload_storage = null ) {
+		if ( null !== $payload_storage && ! $payload_storage instanceof RescuePayloadStorageInterface ) {
+			throw new \InvalidArgumentException( 'Expected RescuePayloadStorageInterface or null.' );
+		}
+		$this->backup_codes    = $backup_codes;
+		$this->endpoint        = $endpoint;
+		$this->settings        = $settings;
+		$this->payload_storage = $payload_storage ? $payload_storage : RescuePayloadStorageSelector::get_storage();
+	}
+
+	/**
+	 * Return seconds left until latest rescue payload expiry.
+	 *
+	 * @return int|null
+	 */
+	public function get_rescue_links_seconds_left() {
+		$max_expiry = $this->payload_storage->get_max_expiry();
+		if ( null === $max_expiry ) {
+			// Notice must work even when links were generated with another provider
+			// during a different request profile (e.g. AJAX generation path).
+			switch ( true ) {
+				case $this->payload_storage instanceof RescuePayloadTransientStorage:
+					$fallback_expiry = ( new RescuePayloadOptionsStorage() )->get_max_expiry();
+					if ( null !== $fallback_expiry ) {
+						$max_expiry = (int) $fallback_expiry;
+					}
+					break;
+				case $this->payload_storage instanceof RescuePayloadOptionsStorage:
+					$fallback_expiry = ( new RescuePayloadTransientStorage() )->get_max_expiry();
+					if ( null !== $fallback_expiry ) {
+						$max_expiry = (int) $fallback_expiry;
+					}
+					break;
+			}
+		}
+		if ( null === $max_expiry ) {
+			return null;
+		}
+		return (int) $max_expiry - time();
 	}
 
 	/**
@@ -103,7 +220,7 @@ class MfaManager {
 	 * @return bool True if popup should be shown.
 	 */
 	public function should_show_rescue_popup() {
-		$mfa_enabled = Config::get( 'mfa_enabled', false );
+		$mfa_enabled    = Config::get( 'mfa_enabled', false );
 		$checkbox_state = get_transient( MfaConstants::TRANSIENT_CHECKBOX_STATE );
 		if ( ! $mfa_enabled && 1 !== (int) $checkbox_state ) {
 			return false;
@@ -143,6 +260,7 @@ class MfaManager {
 		foreach ( (array) $plain_codes as $code ) {
 			$rescue_urls[] = $this->backup_codes->get_rescue_url( $code );
 		}
+		delete_transient( MfaConstants::RESCUE_MAX_EXPIRY_CACHE_KEY );
 		return $this->backup_codes->generate_pdf_html( $rescue_urls );
 	}
 
@@ -161,7 +279,7 @@ class MfaManager {
 	 * @return void
 	 */
 	public function prepare_roles_data() {
-		$data = $this->settings->prepare_roles_data();
+		$data                 = $this->settings->prepare_roles_data();
 		$this->prepared_roles = $data['prepared_roles'];
 		$this->editable_roles = $data['editable_roles'];
 	}
@@ -187,7 +305,25 @@ class MfaManager {
 			wp_die( esc_html( $msg ), esc_html__( '2FA Unavailable', 'limit-login-attempts-reloaded' ), array( 'response' => 403 ) );
 		}
 
+		// Always save role selection on submit so it persists even when rescue popup is shown (early return).
+		$mfa_roles = $this->get_sanitized_mfa_roles_from_post();
+		Config::update( 'mfa_roles', $mfa_roles );
+
 		if ( isset( $_POST['mfa_enabled'] ) && $_POST['mfa_enabled'] ) {
+			// Require admin to confirm their email before enabling 2FA (codes are sent to that address).
+			if ( empty( $_POST['mfa_confirm_email'] ) ) {
+				set_transient( 'llar_mfa_email_confirm_required', 1, 60 );
+				return false;
+			}
+			delete_transient( 'llar_mfa_email_confirm_required' );
+			$rescue_confirmed = ! empty( $_POST['mfa_rescue_codes_confirmed'] );
+			if ( $rescue_confirmed ) {
+				$pending_codes = $this->get_pending_rescue_codes();
+				if ( ! empty( $pending_codes ) ) {
+					Config::update( 'mfa_rescue_codes', $pending_codes );
+					$this->delete_pending_rescue_codes();
+				}
+			}
 			if ( $this->should_show_rescue_popup() ) {
 				$this->show_rescue_popup = true;
 				set_transient( MfaConstants::TRANSIENT_CHECKBOX_STATE, 1, MfaConstants::CHECKBOX_STATE_TTL );
@@ -195,12 +331,25 @@ class MfaManager {
 			}
 			Config::update( 'mfa_enabled', 1 );
 			delete_transient( MfaConstants::TRANSIENT_CHECKBOX_STATE );
+			$this->delete_pending_rescue_codes();
+			// Re-enable 2FA immediately when admin explicitly turns it on (clear rescue temporary disable).
+			delete_transient( MfaConstants::TRANSIENT_MFA_DISABLED );
 		} else {
 			$this->cleanup_rescue_codes();
 			Config::update( 'mfa_enabled', 0 );
 			delete_transient( MfaConstants::TRANSIENT_CHECKBOX_STATE );
+			$this->delete_pending_rescue_codes();
 		}
 
+		return false;
+	}
+
+	/**
+	 * Get sanitized MFA roles array from POST data.
+	 *
+	 * @return array List of role keys.
+	 */
+	private function get_sanitized_mfa_roles_from_post() {
 		$mfa_roles = array();
 		if ( isset( $_POST['mfa_roles'] ) && is_array( $_POST['mfa_roles'] ) && ! empty( $_POST['mfa_roles'] ) ) {
 			$editable_roles     = get_editable_roles();
@@ -209,13 +358,15 @@ class MfaManager {
 				array_map( 'sanitize_text_field', wp_unslash( (array) $_POST['mfa_roles'] ) ),
 				'strlen'
 			);
-			$mfa_roles = array_intersect( $sanitized_roles, $editable_role_keys );
-			$mfa_roles = array_filter( $mfa_roles, function ( $role ) {
-				return (bool) get_role( $role );
-			} );
+			$mfa_roles          = array_intersect( $sanitized_roles, $editable_role_keys );
+			$mfa_roles          = array_filter(
+				$mfa_roles,
+				function ( $role ) {
+					return (bool) get_role( $role );
+				}
+			);
 		}
-		Config::update( 'mfa_roles', $mfa_roles );
-		return false;
+		return $mfa_roles;
 	}
 
 	/**
@@ -231,8 +382,8 @@ class MfaManager {
 			wp_send_json_error( array( 'message' => __( 'Security check failed. Please refresh the page and try again.', 'limit-login-attempts-reloaded' ) ) );
 		}
 
-		$user_id  = get_current_user_id();
-		$rate_key = 'llar_mfa_pdf_gen_' . $user_id;
+		$user_id   = get_current_user_id();
+		$rate_key  = 'llar_mfa_pdf_gen_' . $user_id;
 		$rate_data = get_transient( $rate_key );
 		if ( false !== $rate_data && is_array( $rate_data ) ) {
 			$elapsed = time() - (int) $rate_data['t'];
@@ -240,10 +391,16 @@ class MfaManager {
 				wp_send_json_error( array( 'message' => __( 'Too many generations. Please try again in a minute.', 'limit-login-attempts-reloaded' ) ) );
 			}
 			if ( $elapsed >= MfaConstants::PDF_RATE_LIMIT_PERIOD ) {
-				$rate_data = array( 'c' => 0, 't' => time() );
+				$rate_data = array(
+					'c' => 0,
+					't' => time(),
+				);
 			}
 		} else {
-			$rate_data = array( 'c' => 0, 't' => time() );
+			$rate_data = array(
+				'c' => 0,
+				't' => time(),
+			);
 		}
 		$rate_data['c'] = (int) $rate_data['c'] + 1;
 		set_transient( $rate_key, $rate_data, MfaConstants::PDF_RATE_LIMIT_PERIOD );
@@ -258,6 +415,19 @@ class MfaManager {
 			wp_send_json_error( array( 'message' => __( 'Failed to generate rescue codes. Please try again.', 'limit-login-attempts-reloaded' ) ) );
 		}
 
+		$pending_codes = array();
+		foreach ( $plain_codes as $code ) {
+			$rescue_code = RescueCode::from_plain_code( $code );
+			if ( null === $rescue_code ) {
+				wp_send_json_error( array( 'message' => __( 'Failed to hash rescue codes. Please try again.', 'limit-login-attempts-reloaded' ) ) );
+			}
+			$pending_codes[] = $rescue_code->to_array();
+		}
+		$this->set_pending_rescue_codes( $pending_codes );
+		// Must persist before the transient loop: otherwise a fast open of link #1 can hit
+		// payload present + stale/empty mfa_rescue_codes, verify fails, and payload is removed (next visit: no_payload).
+		Config::update( 'mfa_rescue_codes', $pending_codes );
+
 		$rescue_urls = array();
 		foreach ( $plain_codes as $code ) {
 			try {
@@ -267,6 +437,27 @@ class MfaManager {
 			}
 		}
 
+		// Max-expiry admin notice uses one key; do not call delete_transient 10x inside get_rescue_url
+		// (hosting-specific races with back-to-back set/delete on the first slot).
+		delete_transient( MfaConstants::RESCUE_MAX_EXPIRY_CACHE_KEY );
+
+		// Re-create any link whose payload is not visible to get_transient or wp_options in this
+		// same request (some object-cache setups don't expose just-set transients to the same process,
+		// and the first slot occasionally misses — regenerate so every URL has a live payload).
+		foreach ( $rescue_urls as $i => $u ) {
+			$h = $this->get_rescue_hash_from_rescue_url( $u );
+			if ( '' === $h ) {
+				continue;
+			}
+			if ( $this->payload_storage->exists( $h ) ) {
+				continue;
+			}
+			if ( ! isset( $plain_codes[ $i ] ) || ! is_string( $plain_codes[ $i ] ) ) {
+				continue;
+			}
+			$rescue_urls[ (int) $i ] = $this->backup_codes->get_rescue_url( $plain_codes[ (int) $i ] );
+		}
+
 		try {
 			$html_content = $this->backup_codes->generate_pdf_html( $rescue_urls );
 		} catch ( \Exception $e ) {
@@ -274,14 +465,15 @@ class MfaManager {
 		}
 
 		Config::update( 'mfa_rescue_download_token', wp_generate_password( 32, false ) );
-		Config::update( 'mfa_enabled', 1 );
-		delete_transient( MfaConstants::TRANSIENT_CHECKBOX_STATE );
+		// MFA is enabled only when user clicks Save Settings (after confirming rescue codes in popup).
 
-		wp_send_json_success( array(
-			'rescue_urls'  => $rescue_urls,
-			'html_content' => $html_content,
-			'domain'       => wp_parse_url( home_url(), PHP_URL_HOST ),
-		) );
+		wp_send_json_success(
+			array(
+				'rescue_urls'  => $rescue_urls,
+				'html_content' => $html_content,
+				'domain'       => wp_parse_url( home_url(), PHP_URL_HOST ),
+			)
+		);
 	}
 
 	/**
@@ -300,10 +492,14 @@ class MfaManager {
 		}
 		$plugin_url = defined( 'LLA_PLUGIN_URL' ) ? LLA_PLUGIN_URL : plugins_url( '/', __DIR__ . '/../limit-login-attempts-reloaded.php' );
 		wp_enqueue_script( 'llar-mfa-disabled-message', $plugin_url . 'assets/js/mfa-disabled-message.js', array( 'jquery' ), '1.0.0', true );
-		wp_localize_script( 'llar-mfa-disabled-message', 'llarMfaDisabled', array(
-			'showMessage' => true,
-			'message'     => esc_html__( 'Multi-factor authentication has been temporarily disabled. Please try again later.', 'limit-login-attempts-reloaded' ),
-		) );
+		wp_localize_script(
+			'llar-mfa-disabled-message',
+			'llarMfaDisabled',
+			array(
+				'showMessage' => true,
+				'message'     => esc_html__( 'Multi-factor authentication has been temporarily disabled.', 'limit-login-attempts-reloaded' ),
+			)
+		);
 	}
 
 	/**
@@ -334,17 +530,20 @@ class MfaManager {
 				}
 			}
 		}
-		$merged = array_merge( $existing_data, array(
-			'nonce_mfa_generate_codes' => $mfa_generate_codes,
-			'ajax_url'                 => admin_url( 'admin-ajax.php' ),
-		) );
+		$merged = array_merge(
+			$existing_data,
+			array(
+				'nonce_mfa_generate_codes' => $mfa_generate_codes,
+				'ajax_url'                 => admin_url( 'admin-ajax.php' ),
+			)
+		);
 		wp_localize_script( 'lla-main', 'llar_vars', $merged );
-		// Fire action so PDF libs (html2canvas, jsPDF) are always enqueued on MFA tab for "Download as PDF".
+		// Fire action so PDF lib (jsPDF) is enqueued on MFA tab for "Download as PDF".
 		do_action( 'llar_mfa_generate_codes' );
 	}
 
 	/**
-	 * Enqueue html2canvas and jsPDF when rescue codes popup is shown (after llar_mfa_generate_codes).
+	 * Enqueue jsPDF when rescue codes popup is shown (after llar_mfa_generate_codes).
 	 *
 	 * @return void
 	 */
@@ -353,7 +552,6 @@ class MfaManager {
 			return;
 		}
 		$plugin_url = defined( 'LLA_PLUGIN_URL' ) ? LLA_PLUGIN_URL : plugins_url( '/', __DIR__ . '/../limit-login-attempts-reloaded.php' );
-		wp_enqueue_script( 'html2canvas', $plugin_url . 'assets/js/html2canvas.min.js', array(), '1.4.1', true );
 		wp_enqueue_script( 'jspdf', $plugin_url . 'assets/js/jspdf.umd.min.js', array(), '2.5.1', true );
 	}
 }
