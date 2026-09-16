@@ -1,4 +1,12 @@
 <?php
+/**
+ * Options page
+ *
+ * @var bool   $info_has_valid_data
+ * @var bool   $info_is_cloud_unavailable
+ * @var string $sync_error_message
+ *
+ */
 
 use LLAR\Core\Config;
 use LLAR\Core\Helpers;
@@ -8,20 +16,16 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit();
 }
 
-$active_tab = "dashboard";
-$active_app = ( Config::get( 'active_app' ) === 'custom' && LimitLoginAttempts::$cloud_app ) ? 'custom' : 'local';
-$is_active_app_custom = $active_app === 'custom';
+$allowed_tabs = array( 'dashboard', 'logs-local', 'logs-custom', 'settings', 'debug', 'premium', 'help', 'mfa' );
+$requested_tab = isset( $_GET['tab'] ) && is_string( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : '';
+$active_tab = in_array( $requested_tab, $allowed_tabs, true ) ? $requested_tab : 'dashboard';
 
-if ( ! empty( $_GET["tab"]) && in_array( $_GET["tab"], LimitLoginAttempts::$allowed_tabs ) ) {
-
-	if ( ! LimitLoginAttempts::$cloud_app && $_GET['tab'] === 'logs-custom' ) {
-
-		$active_tab = 'logs-local';
-	} else {
-
-		$active_tab = sanitize_text_field( $_GET["tab"] );
-	}
+if ( $active_tab === 'logs-custom' && ! LimitLoginAttempts::$cloud_app ) {
+	$active_tab = 'logs-local';
 }
+
+$active_app = ( Config::get( Config::OPTION_ACTIVE_APP ) === 'custom' && LimitLoginAttempts::$cloud_app ) ? 'custom' : 'local';
+$is_active_app_custom = $active_app === 'custom';
 
 $auto_update_choice = Config::get( 'auto_update_choice' );
 $is_agency = false;
@@ -31,23 +35,30 @@ if ( $is_active_app_custom ) {
 	$block_sub_group = $this->info_sub_group();
 	$upgrade_premium_url = $this->info_upgrade_url();
 	$is_agency = $block_sub_group === 'Agency';
-	$requests = ! $is_agency ? $this->info_requests() : false;
+	$info_has_valid_data = $this->info_has_valid_data();
+	$info_is_cloud_unavailable = $this->info_is_cloud_unavailable();
+	$requests = ! $is_agency && $info_has_valid_data ? $this->info_requests() : false;
 	$is_exhausted = ! $is_agency && $this->info_is_exhausted();
+
+	$app_config = Config::get( 'app_config' );
+	$sync_error_message = ( is_array( $app_config ) && ! empty( $app_config['messages']['sync_error'] ) )
+		? $app_config['messages']['sync_error']
+		: '';
 } else {
 
 	$is_exhausted = false;
+	$info_has_valid_data = false;
+	$info_is_cloud_unavailable = false;
 	$block_sub_group = '';
 	$upgrade_premium_url = '';
+	$sync_error_message = '';
 }?>
 
 <div class="header_massage">
     <?php
-    if ( $is_active_app_custom && $block_sub_group === 'Micro Cloud' ) :
+    if ( $is_active_app_custom && $block_sub_group === 'Micro Cloud' && ( $is_exhausted || $info_is_cloud_unavailable ) ) :
 
 	$notifications_message_shown = (int) Config::get( 'notifications_message_shown' );
-	$upgrade_premium_url = $this->info_upgrade_url();
-
-    if ( $is_exhausted ) :
 
         if ( time() > $notifications_message_shown ) : ?>
             <div id="llar-header-upgrade-premium-message" class="exhausted">
@@ -65,7 +76,7 @@ if ( $is_active_app_custom ) {
             </div>
         <?php endif; ?>
 
-    <?php else : ?>
+    <?php elseif ( $is_active_app_custom && $block_sub_group === 'Micro Cloud' && $info_has_valid_data ) : ?>
         <div id="llar-header-upgrade-mc-message">
             <p>
                 <span class="dashicons dashicons-superhero"></span>
@@ -77,25 +88,45 @@ if ( $is_active_app_custom ) {
             </p>
         </div>
 
-        <?php endif; ?>
+    <?php elseif ( $is_active_app_custom && $info_is_cloud_unavailable && ! empty( $sync_error_message ) ) : ?>
+        <div class="notice notice-error" style="display: block;">
+            <p><?php echo wp_kses_post( $sync_error_message ); ?></p>
+        </div>
 
     <?php endif; ?>
 </div>
 
-<?php if ( ( $auto_update_choice || $auto_update_choice === null ) && !Helpers::is_auto_update_enabled() ) : ?>
-<div class="notice notice-error llar-auto-update-notice">
-    <p>
-        <?php _e( 'Do you want Limit Login Attempts Reloaded to provide the latest version automatically?', 'limit-login-attempts-reloaded' ); ?>
-        <a href="#" class="auto-enable-update-option" data-val="yes">
-            <?php _e( 'Yes, enable auto-update', 'limit-login-attempts-reloaded' ); ?>
-        </a>
-        |
-        <a href="#" class="auto-enable-update-option" data-val="no">
-            <?php _e( 'No thanks', 'limit-login-attempts-reloaded' ); ?>
-        </a>
-    </p>
-</div>
-<?php endif; ?>
+<?php
+if ( ! empty( $this->pending_admin_message ) ) {
+	$this->render_admin_notice( 'flash', $this->pending_admin_message );
+	$this->pending_admin_message = null;
+}
+if ( $this->should_show_mfa_recovery_links_expired_notice() ) {
+	$this->render_admin_notice(
+		'mfa-recovery-links-expired',
+		array(
+			'mfa_url' => $this->get_options_page_uri( 'mfa' ),
+		)
+	);
+}
+if ( ( $auto_update_choice || $auto_update_choice === null ) && ! Helpers::is_auto_update_enabled() ) {
+	$this->render_admin_notice( 'auto-update', array() );
+}
+if ( $active_tab === 'mfa' && ! is_ssl() ) {
+	$this->render_admin_notice( 'https-recommended-mfa', array() );
+}
+if ( 'debug' === $active_tab && $this->has_capability ) {
+	$foreign_authenticate_hooks = LimitLoginAttempts::get_foreign_authenticate_hooks();
+	if ( ! empty( $foreign_authenticate_hooks ) ) {
+		$this->render_admin_notice(
+			'debug-foreign-auth-hooks',
+			array(
+				'hooks' => $foreign_authenticate_hooks,
+			)
+		);
+	}
+}
+?>
 
 <div id="llar_popup_error_content" style="display: none">
     <div class="popup_error_content__content">
