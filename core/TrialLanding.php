@@ -121,13 +121,14 @@ class TrialLanding {
 			'token' => $token,
 		);
 
-		return add_query_arg(
-			array(
-				'id'     => (int) $info_id,
-				'client' => wp_json_encode( $client ),
-			),
-			self::LANDING_BASE
-		);
+		$client_json = wp_json_encode( $client );
+		if ( false === $client_json ) {
+			$client_json = '{}';
+		}
+
+		return self::LANDING_BASE
+			. '?id=' . (int) $info_id
+			. '&client=' . rawurlencode( $client_json );
 	}
 
 	/**
