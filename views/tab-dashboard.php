@@ -19,6 +19,9 @@ $dashboard = $this->get_dashboard_view_vars( $active_app, $is_active_app_custom,
 $setup_code        = $dashboard['setup_code'];
 $api_stats         = $dashboard['api_stats'];
 $chart_circle_data = $dashboard['chart_circle_data'];
+$trial_modal       = $dashboard['show_trial_block']
+	? $this->get_micro_cloud_modal_view_vars( 'dashboard' )
+	: null;
 
 $wp_locale = str_replace( '_', '-', get_locale() );
 $is_tab_dashboard = true;
@@ -37,7 +40,7 @@ if ( $dashboard['show_onboarding'] ) {
         <div class="info-box-2">
             <?php include_once( LLA_PLUGIN_DIR . 'views/chart-failed-attempts.php'); ?>
         </div>
-        <?php if ( $dashboard['show_trial_block'] ) : ?>
+        <?php if ( $dashboard['show_trial_block'] && $trial_modal ) : ?>
 		<div class="info-box-3">
             <div class="section-title__new">
                 <div class="title"><?php echo $dashboard['trial_block']['title']; ?></div>
@@ -55,14 +58,18 @@ if ( $dashboard['show_onboarding'] ) {
             </div>
             <div class="actions">
                 <div class="actions__buttons actions__buttons--centered">
-                    <a title="<?php echo esc_attr( $dashboard['trial_block']['cta_title'] ); ?>"
+                    <a href="<?php echo esc_url( $trial_modal['landing_url'] ); ?>"
+                       title="<?php echo esc_attr( $dashboard['trial_block']['cta_title'] ); ?>"
                        class="button menu__item button__orange button_micro_cloud link__style_unlink">
                         <?php echo $dashboard['trial_block']['cta_label']; ?>
                     </a>
                 </div>
             </div>
         </div>
-        <?php require_once( LLA_PLUGIN_DIR . 'views/micro-cloud-modal.php') ?>
+        <?php
+        $modal = $trial_modal;
+        require_once( LLA_PLUGIN_DIR . 'views/micro-cloud-modal.php');
+        ?>
         <?php elseif ( $dashboard['show_premium_disabled_block'] ) : ?>
             <div class="info-box-3">
                 <div class="section-title__new">

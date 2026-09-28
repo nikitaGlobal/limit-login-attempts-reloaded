@@ -237,6 +237,98 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
             const $onboarding_panel = $( '.dashboard-section-4' );
 
             let onboardingCompleted = false;
+            const trialReturn = <?php echo wp_json_encode( $popup['trial_return'] ); ?>;
+            const trialLanding = <?php echo wp_json_encode( $popup['trial_landing'] ); ?>;
+
+            const buildTrialLandingUrl = function ( email ) {
+                const client = {
+                    url: trialLanding.return_url,
+                    email: email || '',
+                    token: trialLanding.token || ''
+                };
+                return trialLanding.base_url
+                    + '?id=' + encodeURIComponent( trialLanding.info_id )
+                    + '&client=' + encodeURIComponent( JSON.stringify( client ) );
+            };
+
+            const scrubOnboardingReturnParams = function () {
+                try {
+                    const url = new URL( window.location.href );
+                    url.searchParams.delete( 'setup_code' );
+                    url.searchParams.delete( 'llar_trial_token' );
+                    url.searchParams.delete( 'token' );
+                    window.history.replaceState( {}, document.title, url.toString() );
+                } catch ( e ) {}
+            };
+
+            const jumpToStep3 = function () {
+                const step_line = $( '.llar-onboarding__line .point__block' );
+                step_line.removeClass( 'active' );
+                step_line.filter( '[data-step="1"], [data-step="2"], [data-step="3"]' ).addClass( 'visited' );
+                step_line.filter( '[data-step="3"]' ).addClass( 'active' );
+            };
+
+            const bindStep3Handlers = function ( email ) {
+                const $limited_upgrade_subscribe = $( '#llar-limited-upgrade-subscribe' );
+                const $limited_upgrade_no_subscribe = $( '#llar-limited-upgrade-no_subscribe' );
+                const $block_upgrade_subscribe = $( '.llar-upgrade-subscribe' );
+                const $button_next = $( '.button.next_step' );
+                const $button_skip = $button_next.filter( '.button-skip' );
+                const $description = $( '#llar-description-step-3' );
+                const spinner = '.preloader-wrapper .spinner';
+
+                if ( email === '' || email === null ) {
+                    email = '<?php echo esc_js( $popup['admin_email'] ); ?>';
+                }
+
+                $limited_upgrade_no_subscribe.off( 'click.llarTrial' ).on( 'click.llarTrial', function () {
+                    $( this ).addClass( disabled );
+                    $limited_upgrade_no_subscribe.addClass( disabled );
+                    $( this ).find( spinner ).addClass( visibility );
+                } );
+
+                $limited_upgrade_subscribe.off( 'click.llarTrial' ).on( 'click.llarTrial', function ( e ) {
+                    e.preventDefault();
+                    $button_next.addClass( disabled );
+                    $limited_upgrade_subscribe.addClass( disabled );
+                    $( this ).find( spinner ).addClass( visibility );
+                    window.location.href = buildTrialLandingUrl( email );
+                } );
+
+                if ( trialReturn.can_activate && trialReturn.setup_code ) {
+                    $description.addClass( 'llar-display-none' );
+                    $block_upgrade_subscribe.addClass( 'llar-display-none' );
+                    $body.addClass( disabled );
+                    $( '.jconfirm-closeIcon' ).addClass( hidden );
+
+                    const $loadinfo = $( '<div class="llar-trial-loadinfo" style="text-align:center;padding:24px 0;"/>' )
+                        .append( '<?php echo $spinner; ?>' );
+                    $( '.llar-onboarding__body .card' ).append( $loadinfo );
+
+                    llar_activate_license_key( trialReturn.setup_code )
+                        .then( function () {
+                            onboardingCompleted = true;
+                            thank_you_for_completing_setup();
+                        } )
+                        .catch( function ( response ) {
+                            $body.removeClass( disabled );
+                            $( '.jconfirm-closeIcon' ).removeClass( hidden );
+                            $loadinfo.remove();
+                            $description.removeClass( 'llar-display-none' );
+                            $block_upgrade_subscribe.removeClass( 'llar-display-none' );
+                            $button_next.removeClass( disabled );
+                            $limited_upgrade_subscribe.removeClass( disabled );
+                            $.alert( {
+                                title: false,
+                                content: $( '<div/>' ).text( llar_micro_cloud_error_message( response ) ).html(),
+                                type: 'red',
+                            } );
+                        } )
+                        .finally( function () {
+                            scrubOnboardingReturnParams();
+                        } );
+                }
+            };
 
 
             const ondoarding_modal = $.dialog( {
@@ -301,6 +393,13 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
                     let email;
 
                     $body.css('overflow', 'hidden');
+
+                    if ( trialReturn.open_step_3 ) {
+                        jumpToStep3();
+                        $( '.llar-onboarding__body' ).replaceWith( <?php echo wp_json_encode( trim( $content_step_3 ), JSON_HEX_QUOT | JSON_HEX_TAG ); ?> );
+                        email = '<?php echo esc_js( $popup['admin_email'] ); ?>';
+                        bindStep3Handlers( email );
+                    }
 
                     $setup_code_key.on( 'input', function () {
 
@@ -405,58 +504,7 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
                         } else if ( next_step === 3 ) {
 
                             $html_onboarding_body.replaceWith( <?php echo wp_json_encode( trim( $content_step_3 ), JSON_HEX_QUOT | JSON_HEX_TAG ); ?> );
-
-                            const $limited_upgrade_subscribe = $( '#llar-limited-upgrade-subscribe' );
-                            const $limited_upgrade_no_subscribe = $( '#llar-limited-upgrade-no_subscribe' );
-                            const $block_upgrade_subscribe = $( '.llar-upgrade-subscribe' );
-                            const $button_next = $( '.button.next_step' );
-                            const $button_skip = $button_next.filter( '.button-skip' );
-                            const $description = $( '#llar-description-step-3' );
-
-
-                            if ( email === '' || email === null ) {
-                                email = '<?php echo esc_js( $popup['admin_email'] ); ?>'
-                            }
-
-                            $limited_upgrade_no_subscribe.on( 'click', function () {
-
-                                $(this).addClass(disabled);
-                                $limited_upgrade_no_subscribe.addClass(disabled);
-                                $(this).find( spinner ).addClass(visibility);
-                            });
-
-                            $limited_upgrade_subscribe.on( 'click', function () {
-
-                                $button_next.addClass( disabled );
-                                $limited_upgrade_subscribe.addClass( disabled );
-                                $(this).find( spinner ).addClass( visibility );
-
-                                $body.addClass( disabled );
-                                llar_activate_micro_cloud( email )
-                                    .then( function () {
-                                        $description.addClass( 'llar-display-none' );
-                                        $button_next.removeClass( disabled );
-                                        $button_next.removeClass( 'llar-display-none' );
-                                        $button_skip.addClass( 'llar-display-none' );
-                                    })
-                                    .catch( function ( response ) {
-                                        $body.removeClass( disabled );
-                                        $button_skip.removeClass( disabled );
-
-                                        $.alert( {
-                                            title: false,
-                                            content: $( '<div/>' ).text( llar_micro_cloud_error_message( response ) ).html(),
-                                            type: 'red',
-                                        } );
-                                    })
-                                    .finally( function () {
-                                        $body.removeClass( disabled );
-                                        $block_upgrade_subscribe.addClass( 'llar-display-none' );
-                                        onboardingCompleted = true;
-                                        thank_you_for_completing_setup();
-                                    } )
-
-                            });
+                            bindStep3Handlers( email );
                         } else if ( next_step === 4 && !$body.hasClass( disabled ) ) {
                             thank_you_for_completing_setup();
 

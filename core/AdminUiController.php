@@ -888,10 +888,11 @@ class AdminUiController {
 	/**
 	 * View data for views/micro-cloud-modal.php.
 	 *
+	 * @param string $tab Current plugin tab.
 	 * @return array
 	 */
-	public function get_micro_cloud_modal_view_vars() {
-		return ( new MicroCloudModalPresenter() )->get_view_vars();
+	public function get_micro_cloud_modal_view_vars( $tab = 'dashboard' ) {
+		return ( new MicroCloudModalPresenter() )->get_view_vars( $tab );
 	}
 
 	/**

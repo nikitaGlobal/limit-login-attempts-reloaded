@@ -39,6 +39,9 @@ $active_app_config          = Config::get( 'app_config' );
 $custom_error_message       = Config::get( 'custom_error_message' );
 
 $is_local_empty_setup_code  = ( ! $is_active_app_custom && empty( $app_setup_code ) );
+$trial_modal                = $is_local_empty_setup_code
+	? $this->get_micro_cloud_modal_view_vars( 'settings' )
+	: null;
 
 $min_plan                   = 'Personal';
 $plans                      = $this->array_name_plans();
@@ -305,9 +308,13 @@ $url_try_for_free_cloud     = ( $is_active_app_custom ) ? $this->info_upgrade_ur
                                 </div>
                             </div>
                         </div>
-	                    <?php if ( $is_local_empty_setup_code ) : ?>
-		                    <?php require_once( LLA_PLUGIN_DIR . 'views/micro-cloud-modal.php') ?>
-                            <a class="button menu__item button_micro_cloud button__transparent_orange" target="_blank">
+	                    <?php if ( $is_local_empty_setup_code && $trial_modal ) : ?>
+		                    <?php
+		                    $modal = $trial_modal;
+		                    require_once( LLA_PLUGIN_DIR . 'views/micro-cloud-modal.php');
+		                    ?>
+                            <a href="<?php echo esc_url( $trial_modal['landing_url'] ); ?>"
+                               class="button menu__item button_micro_cloud button__transparent_orange">
 			                    <?php _e( '14 Day Trial', 'limit-login-attempts-reloaded' ); ?>
                             </a>
                         <?php elseif ( $block_sub_group === 'Micro Cloud' ) : ?>
@@ -414,8 +421,9 @@ $url_try_for_free_cloud     = ( $is_active_app_custom ) ? $this->info_upgrade_ur
                                 <div class="description mt-1_5">
 									<?php _e( 'Why Use Our Premium Cloud App?', 'limit-login-attempts-reloaded' ); ?>
                                 </div>
-	                            <?php if ( $is_local_empty_setup_code ) : ?>
-                                    <a class="button menu__item button_micro_cloud button__transparent_orange mt-1_5" target="_blank">
+	                            <?php if ( $is_local_empty_setup_code && $trial_modal ) : ?>
+                                    <a href="<?php echo esc_url( $trial_modal['landing_url'] ); ?>"
+                                       class="button menu__item button_micro_cloud button__transparent_orange mt-1_5">
 			                            <?php _e( '14 Day Trial', 'limit-login-attempts-reloaded' ); ?>
                                     </a>
 	                            <?php elseif ( $block_sub_group === 'Micro Cloud' ) : ?>

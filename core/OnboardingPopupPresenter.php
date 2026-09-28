@@ -24,9 +24,32 @@ class OnboardingPopupPresenter {
 			? $admin_notify_email
 			: ( ( ! is_multisite() ) ? get_option( 'admin_email' ) : get_site_option( 'admin_email' ) );
 
+		$trial_return = TrialLanding::parse_return_request();
+		$open_trial   = ! empty( $trial_return['open_trial_step'] );
+		$should_show  = ( ! Config::get( 'onboarding_popup_shown' ) && ! Config::get( 'app_setup_code' ) )
+			|| ( $open_trial && empty( Config::get( 'app_setup_code' ) ) );
+
+		$trial_token = '';
+		if ( $should_show ) {
+			$trial_token = TrialLanding::create_token( 'onboarding' );
+		}
+
 		return array(
-			'should_show' => ! Config::get( 'onboarding_popup_shown' ) && ! Config::get( 'app_setup_code' ),
+			'should_show' => $should_show,
 			'admin_email' => $admin_email,
+			'trial_return' => array(
+				'open_step_3'   => $open_trial && empty( Config::get( 'app_setup_code' ) ),
+				'can_activate'  => ! empty( $trial_return['can_activate'] ) && 'onboarding' === $trial_return['context'],
+				'setup_code'    => ! empty( $trial_return['can_activate'] ) && 'onboarding' === $trial_return['context']
+					? $trial_return['setup_code']
+					: '',
+			),
+			'trial_landing' => array(
+				'info_id'    => TrialLanding::INFO_ID_ONBOARDING,
+				'token'      => $trial_token,
+				'return_url' => TrialLanding::onboarding_return_url(),
+				'base_url'   => TrialLanding::LANDING_BASE,
+			),
 			'steps'       => array(
 				__( 'Welcome', 'limit-login-attempts-reloaded' ),
 				__( 'Notifications', 'limit-login-attempts-reloaded' ),
