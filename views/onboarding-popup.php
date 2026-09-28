@@ -289,6 +289,7 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
 
                 $limited_upgrade_subscribe.off( 'click.llarTrial' ).on( 'click.llarTrial', function ( e ) {
                     e.preventDefault();
+                    e.stopImmediatePropagation();
                     $button_next.addClass( disabled );
                     $limited_upgrade_subscribe.addClass( disabled );
                     $( this ).find( spinner ).addClass( visibility );
