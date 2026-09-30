@@ -40,6 +40,7 @@ class AdminUiController {
 			$activate_micro_cloud       = wp_create_nonce( 'llar-activate-micro-cloud' );
 			$subscribe_email            = wp_create_nonce( 'llar-subscribe-email' );
 			$close_premium_message      = wp_create_nonce( 'llar-close-premium-message' );
+			$extension_install          = wp_create_nonce( 'llar-extension-install' );
 			wp_enqueue_script( 'lla-main', LLA_PLUGIN_URL . 'assets/js/limit-login-attempts.js', array('jquery'), $plugin_data['Version'], false );
 			wp_localize_script('lla-main', 'llar_vars', array(
 				'nonce_auto_update'               => $auto_update,
@@ -51,6 +52,9 @@ class AdminUiController {
 				'nonce_activate_micro_cloud'      => $activate_micro_cloud,
 				'nonce_subscribe_email'           => $subscribe_email,
 				'nonce_close_premium_message'     => $close_premium_message,
+				'nonce_extension_install'         => $extension_install,
+				'extension_installing_text'        => __( 'Installing...', 'limit-login-attempts-reloaded' ),
+				'extension_active_text'            => __( 'Active', 'limit-login-attempts-reloaded' ),
 			));
 
 			global $wp_scripts, $wp_styles;
@@ -162,6 +166,12 @@ class AdminUiController {
 			);
 		}
 
+		$submenu_items[] = array(
+			'id'    => 'extensions',
+			'name'  => __( 'Extensions', 'limit-login-attempts-reloaded' ),
+			'url'   => '&tab=extensions',
+		);
+
 		return $submenu_items;
 	}
 
@@ -206,13 +216,22 @@ class AdminUiController {
 			remove_submenu_page( $this->options_page_slug, $this->options_page_slug );
 
 			if ( ! $is_cloud_app_enabled && isset( $submenu[$this->options_page_slug] ) ) {
-				// Premium is the last submenu item (Dashboard, Settings, 2FA, Logs, Debug, Help, Premium).
-				$submenu_keys = array_keys( $submenu[$this->options_page_slug] );
-				$premium_key  = end( $submenu_keys );
-				$submenu[$this->options_page_slug][$premium_key][4] =
-					! empty( $submenu[$this->options_page_slug][$premium_key][4] )
-						? $submenu[$this->options_page_slug][$premium_key][4] . ' llar-submenu-premium-item'
-						: 'llar-submenu-premium-item';
+				// Highlight the Premium submenu item (Dashboard, Settings, 2FA, Logs, Debug, Help, Premium, Extensions).
+				$premium_key = null;
+
+				foreach ( $submenu[$this->options_page_slug] as $key => $item ) {
+					if ( ! empty( $item[2] ) && ( false !== strpos( $item[2], '&tab=premium' ) || false !== strpos( $item[2], '#modal_micro_cloud' ) ) ) {
+						$premium_key = $key;
+						break;
+					}
+				}
+
+				if ( null !== $premium_key ) {
+					$submenu[$this->options_page_slug][$premium_key][4] =
+						! empty( $submenu[$this->options_page_slug][$premium_key][4] )
+							? $submenu[$this->options_page_slug][$premium_key][4] . ' llar-submenu-premium-item'
+							: 'llar-submenu-premium-item';
+				}
 			}
 
 		} else {
