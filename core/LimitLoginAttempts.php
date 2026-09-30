@@ -30,14 +30,14 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 	 * Admin options page slug
 	 * @var string
 	 */
-	private $_options_page_slug = 'limit-login-attempts';
+	private $options_page_slug = 'limit-login-attempts';
 
 	/**
 	 * Errors messages
 	 *
 	 * @var array
 	 */
-	public $_errors = array();
+	public $errors = array();
 
 	public $all_errors_array = array();
 
@@ -262,11 +262,11 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			'name' => 'Micro Cloud',
 			'rate' => 20,
 		),
-		'personal'  => array(
+		'personal'   => array(
 			'name' => 'Personal',
 			'rate' => 25,
 		),
-		'premium'   => array(
+		'premium'    => array(
 			'name' => 'Premium',
 			'rate' => 30,
 		),
@@ -278,7 +278,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			'name' => 'Professional',
 			'rate' => 50,
 		),
-		'business'    => array(
+		'business'   => array(
 			'name' => 'Business',
 			'rate' => 55,
 		),
@@ -402,6 +402,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 		//add_action( 'admin_notices', array( $this, 'show_enable_notify_notice' ) );
 
 		add_action( 'admin_notices', array( $this, 'render_leave_review_admin_notice' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_leave_review_notice_script' ) );
 
 		add_action( 'admin_print_scripts-toplevel_page_limit-login-attempts', array( $this, 'load_admin_scripts' ) );
 		add_action( 'admin_print_scripts-settings_page_limit-login-attempts', array( $this, 'load_admin_scripts' ) );
@@ -482,7 +483,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 
 
 	public function setup_cookie() {
-		if ( empty( $_GET['page'] ) || $_GET['page'] !== $this->_options_page_slug ) {
+		if ( empty( $_GET['page'] ) || $_GET['page'] !== $this->options_page_slug ) { // phpcs:ignore WordPress.Security.NonceVerification -- read-only routing check, no state change.
 
 			return;
 		}
@@ -513,7 +514,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 
 	public function dashboard_widgets_content() {
 		$vars = $this->dashboard_renderer->build_dashboard_widget_vars();
-		extract( $vars, EXTR_SKIP );
+		extract( $vars, EXTR_SKIP ); // phpcs:ignore WordPress.PHP.DontExtract -- template variables for the dashboard widget view, EXTR_SKIP prevents overwriting locals.
 		include LLA_PLUGIN_DIR . 'views/admin-dashboard-widgets.php';
 	}
 
@@ -574,14 +575,14 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 	public function dashboard_page_redirect() {
 		if (
 			! get_transient( 'llar_dashboard_redirect' )
-			|| isset( $_GET['activate-multi'] ) || is_network_admin()
+			|| isset( $_GET['activate-multi'] ) || is_network_admin() // phpcs:ignore WordPress.Security.NonceVerification -- plugin activation request, no nonce exists at activation time.
 		) {
 			return;
 		}
 
 		delete_transient( 'llar_dashboard_redirect' );
 
-		wp_redirect( admin_url( 'index.php?page=' . $this->_options_page_slug ) );
+		wp_safe_redirect( admin_url( 'index.php?page=' . $this->options_page_slug ) );
 		exit();
 	}
 
@@ -590,10 +591,10 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 	 * Runs on admin_init before any output to avoid "headers already sent" when using wp_safe_redirect().
 	 */
 	public function onboarding_redirect_to_dashboard() {
-		if ( empty( $_GET['page'] ) || $this->_options_page_slug !== $_GET['page'] ) {
+		if ( empty( $_GET['page'] ) || $this->options_page_slug !== $_GET['page'] ) { // phpcs:ignore WordPress.Security.NonceVerification -- read-only routing check, no state change.
 			return;
 		}
-		$tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'dashboard';
+		$tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'dashboard'; // phpcs:ignore WordPress.Security.NonceVerification -- read-only tab routing.
 		if ( 'dashboard' === $tab ) {
 			return;
 		}
@@ -614,13 +615,15 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 	 * Hook 'plugins_loaded'
 	 */
 	public function setup() {
-		if ( ! ( $activation_timestamp = Config::get( 'activation_timestamp' ) ) ) {
+		$activation_timestamp = Config::get( 'activation_timestamp' );
+		if ( ! $activation_timestamp ) {
 
 			// Write time when the plugin is activated
 			Config::update( 'activation_timestamp', time() );
 		}
 
-		if ( ! ( $activation_timestamp = Config::get( 'notice_enable_notify_timestamp' ) ) ) {
+		$notify_notice_timestamp = Config::get( 'notice_enable_notify_timestamp' );
+		if ( ! $notify_notice_timestamp ) {
 
 			// Write time when the plugin is activated
 			Config::update( 'notice_enable_notify_timestamp', strtotime( '-32 day' ) );
@@ -643,7 +646,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 		// Check if installed old plugin
 		$this->check_original_installed();
 
-		// Setup default plugin options
+		// Setup default plugin options // phpcs:ignore Squiz.PHP.CommentedOutCode -- prose comment, not commented-out code.
 		//$this->sanitize_options();
 
 		add_action( 'wp_login_failed', array( $this, 'limit_login_failed' ) );
@@ -706,7 +709,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 
 		add_filter( 'plugin_action_links_' . LLA_PLUGIN_BASENAME, array( $this, 'add_action_links' ) );
 
-		// MFA flow callback: llar_mfa=1&token=...&code=...
+		// MFA flow callback: llar_mfa=1&token=...&code=... // phpcs:ignore Squiz.PHP.CommentedOutCode -- query-string documentation, not commented-out code.
 		add_action( 'init', array( $this, 'mfa_flow_callback' ), 1 );
 		add_action( 'init', array( DigestStorage::class, 'register_post_type' ) );
 		add_filter( 'query_vars', array( $this, 'add_mfa_flow_query_var' ) );
@@ -741,7 +744,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 
 	public function login_page_gdpr_message() {
 
-		if ( ! Config::get( 'gdpr' ) || isset( $_REQUEST['interim-login'] ) ) {
+		if ( ! Config::get( 'gdpr' ) || isset( $_REQUEST['interim-login'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification -- read-only display condition on the login page.
 			return;
 		}
 
@@ -762,9 +765,9 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 		}
 		global $limit_login_just_lockedout, $limit_login_nonempty_credentials, $um_limit_login_failed;
 
-		$llar_mfa_error = isset( $_GET['llar_mfa_error'] ) ? sanitize_text_field( wp_unslash( $_GET['llar_mfa_error'] ) ) : '';
+		$llar_mfa_error = isset( $_GET['llar_mfa_error'] ) ? sanitize_text_field( wp_unslash( $_GET['llar_mfa_error'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification -- sanitized read-only error flag set by this plugin's own redirect.
 		// Same error output as failed login for any MFA redirect (session_expired, code_invalid, etc.).
-		$show_mfa_return_error = ( $llar_mfa_error !== '' );
+		$show_mfa_return_error = ( '' !== $llar_mfa_error );
 
 		if ( Config::get( Config::OPTION_ACTIVE_APP ) === 'local' && ! $limit_login_nonempty_credentials && ! $show_mfa_return_error ) {
 			return;
@@ -772,7 +775,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 
 		$custom_error         = Config::get( 'custom_error_message' );
 		$late_hook_errors     = ! empty( $this->all_errors_array['late_hook_errors'] ) ? $this->all_errors_array['late_hook_errors'] : false;
-		$is_wp_login_page     = isset( $_POST['log'] );
+		$is_wp_login_page     = isset( $_POST['log'] ); // phpcs:ignore WordPress.Security.NonceVerification -- wp-login form POST, presence check only; core login form has no nonce.
 		$is_custom_login_page = $this->integration_manager->is_custom_login_page();
 
 		$mfa_return_message = __( '<strong>ERROR</strong>: Incorrect username or password.', 'limit-login-attempts-reloaded' );
@@ -780,7 +783,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			ob_start();
 			?>
 				;( function( $ ) {
-					let ajaxUrlObj = new URL( `<?php echo admin_url( 'admin-ajax.php' ); ?>` );
+					let ajaxUrlObj = new URL( `<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>` );
 					let um_limit_login_failed = `<?php echo esc_js( isset( $um_limit_login_failed ) ? $um_limit_login_failed : '' ); ?>`;
 					let late_hook_errors = <?php echo wp_json_encode( wp_kses_post( ( $late_hook_errors ) ) ); ?>;
 					let custom_error = <?php echo wp_json_encode( nl2br( esc_html( $custom_error ) ) ); ?>;
@@ -791,7 +794,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 
 					$.post( ajaxUrlObj.toString(), {
 						action: 'get_remaining_attempts_message',
-						sec: '<?php echo wp_create_nonce( 'llar-get-remaining-attempts-message' ); ?>'
+						sec: '<?php echo esc_js( wp_create_nonce( 'llar-get-remaining-attempts-message' ) ); ?>'
 					}, function( response ) {
 						if ( llar_mfa_return_error ) {
 							if ( response.success && response.data ) {
@@ -867,8 +870,8 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			$script = ob_get_clean();
 
 			echo function_exists( 'wp_get_inline_script_tag' )
-				? wp_get_inline_script_tag( $script )
-				: '<script>' . $script . '</script>';
+				? wp_get_inline_script_tag( $script ) // phpcs:ignore WordPress.Security.EscapeOutput -- trusted plugin-generated inline script for the login page.
+				: '<script>' . $script . '</script>'; // phpcs:ignore WordPress.Security.EscapeOutput -- trusted plugin-generated inline script for the login page.
 		endif;
 	}
 
@@ -928,21 +931,26 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 	}
 
 	public function cloud_app_init() {
-		if ( Config::get( Config::OPTION_ACTIVE_APP ) === 'custom' && $config = Config::get( 'app_config' ) ) {
+		$app_config = Config::get( 'app_config' );
+		if ( Config::get( Config::OPTION_ACTIVE_APP ) === 'custom' && $app_config ) {
 
-			self::$cloud_app = new CloudApp( $config );
+			self::$cloud_app = new CloudApp( $app_config );
 		}
 	}
 
 	public function load_admin_scripts() {
-		if ( ! empty( $_REQUEST['page'] ) && $_REQUEST['page'] !== $this->_options_page_slug ) {
+		if ( ! empty( $_REQUEST['page'] ) && $_REQUEST['page'] !== $this->options_page_slug ) { // phpcs:ignore WordPress.Security.NonceVerification -- read-only routing check, no state change.
 			return;
 		}
 
-		wp_enqueue_script( 'jquery-ui-accordion' );
-		wp_enqueue_style( 'llar-jquery-ui', LLA_PLUGIN_URL . 'assets/css/jquery-ui.css' );
+		$plugin_data = get_plugin_data( LLA_PLUGIN_FILE );
 
-		wp_enqueue_script( 'llar-charts', LLA_PLUGIN_URL . 'assets/js/chart.umd.js' );
+		wp_enqueue_script( 'jquery-ui-accordion' );
+		wp_enqueue_style( 'llar-jquery-ui', LLA_PLUGIN_URL . 'assets/css/jquery-ui.css', array(), $plugin_data['Version'] );
+
+		// Charts must load in the head: the dashboard widget views run inline
+		// chart initialization scripts that require Chart.js to be defined.
+		wp_enqueue_script( 'llar-charts', LLA_PLUGIN_URL . 'assets/js/chart.umd.js', array(), $plugin_data['Version'], false );
 	}
 
 	public function check_whitelist_ips( $allow, $ip ) {
@@ -986,9 +994,10 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			return $error;
 		}
 
-		if ( $login_error = $this->error_presenter->get_message() ) {
+		$login_error = $this->error_presenter->get_message();
+		if ( $login_error ) {
 
-			return new IXR_Error( 403, strip_tags( $login_error ) );
+			return new IXR_Error( 403, wp_strip_all_tags( $login_error ) );
 		}
 
 		return $error;
@@ -1167,7 +1176,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			if ( isset( $_SERVER['HTTP_REFERER'] ) ) {
 
 				$referer_url    = $_SERVER['HTTP_REFERER'];
-				$referer_parsed = parse_url( $referer_url );
+				$referer_parsed = wp_parse_url( $referer_url );
 
 				$clean_url = isset( $referer_parsed['path'] ) ? $referer_parsed['path'] : '';
 				$clean_url = trim( $clean_url, '/' );
@@ -1520,8 +1529,7 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 	 *
 	 * @return bool
 	 */
-	public function info_is_almost_exhausted()
-	{
+	public function info_is_almost_exhausted() {
 		if ( empty( $this->info_data ) ) {
 
 			$this->info_data = $this->info();
@@ -1704,26 +1712,71 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 	}
 
 	/**
-	 * Admin notice: leave a review (dashboard/plugins/LLAR screens).
+	 * Whether the leave-review notice should show on the current admin screen.
 	 *
-	 * @return void
+	 * Side-effect free (no cookie consumption), so it can gate both the
+	 * admin_notices render and the admin_enqueue_scripts asset loading.
+	 *
+	 * @return bool
 	 */
-	public function render_leave_review_admin_notice() {
+	private function is_leave_review_notice_visible() {
 		$screen = get_current_screen();
-		if ( isset( $_COOKIE['llar_review_notice_shown'] ) ) {
-			Config::update( 'review_notice_shown', true );
-			@setcookie( 'llar_review_notice_shown', '', time() - 3600, '/' );
-		}
 		if (
 			! $this->has_capability
 			|| Config::get( 'review_notice_shown' )
 			|| ! $screen
 			|| ! in_array( $screen->base, array( 'dashboard', 'plugins', 'toplevel_page_limit-login-attempts' ), true )
 		) {
-			return;
+			return false;
 		}
 		$activation_timestamp = Config::get( 'activation_timestamp' );
-		if ( ! $activation_timestamp || $activation_timestamp >= strtotime( '-1 month' ) ) {
+		return $activation_timestamp && $activation_timestamp < strtotime( '-1 month' );
+	}
+
+	/**
+	 * Enqueue and localize the external review-notice dismiss script on admin
+	 * screens where the notice shows. The notice markup ships no inline JS:
+	 * kses-based output filters strip <script> tags but keep their body, which
+	 * printed the JS as plain text on the dashboard (PR #303 follow-up).
+	 *
+	 * @return void
+	 */
+	public function enqueue_leave_review_notice_script() {
+		if ( ! $this->is_leave_review_notice_visible() ) {
+			return;
+		}
+		$plugin_data = get_plugin_data( LLA_PLUGIN_FILE );
+		wp_enqueue_script(
+			'llar-admin-review-notice',
+			LLA_PLUGIN_URL . 'assets/js/llar-admin-review-notice.js',
+			array( 'jquery' ),
+			isset( $plugin_data['Version'] ) ? $plugin_data['Version'] : '',
+			true
+		);
+		wp_localize_script(
+			'llar-admin-review-notice',
+			'llarReviewNotice',
+			array(
+				'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+				'nonce'      => wp_create_nonce( 'llar-dismiss-review' ),
+				'cookieName' => 'llar_review_notice_shown',
+			)
+		);
+	}
+
+	/**
+	 * Admin notice: leave a review (dashboard/plugins/LLAR screens).
+	 *
+	 * @return void
+	 */
+	public function render_leave_review_admin_notice() {
+		if ( isset( $_COOKIE['llar_review_notice_shown'] ) ) {
+			Config::update( 'review_notice_shown', true );
+			if ( ! headers_sent() ) {
+				setcookie( 'llar_review_notice_shown', '', time() - 3600, '/' );
+			}
+		}
+		if ( ! $this->is_leave_review_notice_visible() ) {
 			return;
 		}
 		$this->admin_notices_controller->render( 'leave-review' );
