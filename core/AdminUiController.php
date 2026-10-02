@@ -151,15 +151,20 @@ class AdminUiController {
 
 		if ( ! $is_cloud_app_enabled ) {
 
+			// Trial already burned on the cloud side — stop offering it.
+			$is_trial_expired = $is_local_empty_setup_code && (bool) Config::get( 'app_trial_expired' );
+
 			$slug       = '&tab=dashboard#modal_micro_cloud';
 			$name_item  = $is_local_empty_setup_code ? __( 'Free Trial', 'limit-login-attempts-reloaded' ) : __( 'Premium', 'limit-login-attempts-reloaded' );
 			$url_item   = $is_local_empty_setup_code ? $slug : '&tab=premium';
 
-			$submenu_items[] = array(
-				'id'    => 'premium',
-				'name'  => __( $name_item, 'limit-login-attempts-reloaded' ),
-				'url'   => $url_item,
-			);
+			if ( ! $is_trial_expired ) {
+				$submenu_items[] = array(
+					'id'    => 'premium',
+					'name'  => __( $name_item, 'limit-login-attempts-reloaded' ),
+					'url'   => $url_item,
+				);
+			}
 		}
 
 		return $submenu_items;

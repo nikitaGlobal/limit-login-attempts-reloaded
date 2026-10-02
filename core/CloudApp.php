@@ -301,7 +301,19 @@ class CloudApp
 	{
 		$this->prepare_settings( 'acl', $data );
 
-		return $this->request( 'acl', 'post', $data );
+		$response = $this->request( 'acl', 'post', $data );
+
+		// The cloud reports trial_expired in context once two weeks passed
+		// since the trial account was created. Flag it in the DB so the UI
+		// can stop offering the free trial.
+		if ( is_array( $response )
+			&& isset( $response['context'] )
+			&& 'trial_expired' === $response['context']
+		) {
+			Config::update( 'app_trial_expired', 1 );
+		}
+
+		return $response;
 	}
 
 	/**
