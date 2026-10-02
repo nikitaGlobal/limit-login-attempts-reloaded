@@ -1155,7 +1155,7 @@ class Ajax {
 			$url_api = defined( 'LLAR_MC_URL' ) ? LLAR_MC_URL : 'https://api.limitloginattempts.com/checkout/network';
 
 			$data = array(
-				'group' => 'free',
+				'group' => 'trial',
 				'email' => $email,
 			);
 
