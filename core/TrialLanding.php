@@ -9,9 +9,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Optional trial registration landing redirects (Wordfence-style outbound hop).
  *
- * Before leaving for info.php the plugin stores a one-time token in a transient
- * (24h). The landing must echo that token back as llar_trial_token so only a
- * return from a user-initiated outbound click can auto-activate a setup_code.
+ * Before leaving for info.php the plugin stores a one-time nonce in a transient
+ * (24h) and embeds it into the url= parameter of the outbound landing link, so
+ * only a return from a user-initiated outbound click can auto-activate a
+ * setup_code.
  */
 class TrialLanding {
 
@@ -101,7 +102,11 @@ class TrialLanding {
 	}
 
 	/**
-	 * Build the outbound info.php URL with an encoded client payload.
+	 * Build the outbound info.php URL with separate url and email params.
+	 *
+	 * The one-time nonce is embedded into the url= parameter (not passed
+	 * separately), so the landing only has to send the user back to that
+	 * url verbatim for the nonce to survive the round trip.
 	 *
 	 * @param int    $info_id    Landing id (37 onboarding, 38 dashboard).
 	 * @param string $email      Notification / admin email.
@@ -115,30 +120,43 @@ class TrialLanding {
 			$token = self::create_token( $context );
 		}
 
-		$client = array(
-			'url'   => $return_url,
-			'email' => $email,
-			'token' => $token,
-		);
-
-		$client_json = wp_json_encode( $client );
-		if ( false === $client_json ) {
-			$client_json = '{}';
-		}
+		$return_url = self::with_token( $return_url, $token );
 
 		return self::LANDING_BASE
 			. '?id=' . (int) $info_id
-			. '&client=' . rawurlencode( $client_json );
+			. '&url=' . rawurlencode( $return_url )
+			. '&email=' . rawurlencode( $email );
+	}
+
+	/**
+	 * Embed the one-time nonce into a return URL.
+	 *
+	 * add_query_arg() replaces an existing value, so calling this on a URL
+	 * that already carries the nonce never duplicates it.
+	 *
+	 * @param string $return_url Absolute return URL.
+	 * @param string $token      Nonce to embed (skipped when empty).
+	 * @return string
+	 */
+	public static function with_token( $return_url, $token ) {
+		if ( '' === $token ) {
+			return $return_url;
+		}
+
+		return add_query_arg( self::TOKEN_QUERY_ARG, $token, $return_url );
 	}
 
 	/**
 	 * Return URL for onboarding outbound hop (includes onboarding=true).
 	 *
+	 * @param string $token Optional one-time nonce to embed in the URL.
 	 * @return string
 	 */
-	public static function onboarding_return_url() {
+	public static function onboarding_return_url( $token = '' ) {
 		$base = admin_url( 'admin.php?page=limit-login-attempts&tab=dashboard' );
-		return add_query_arg( 'onboarding', 'true', $base );
+		$base = add_query_arg( 'onboarding', 'true', $base );
+
+		return self::with_token( $base, $token );
 	}
 
 	/**

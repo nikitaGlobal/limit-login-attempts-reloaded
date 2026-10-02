@@ -46,8 +46,7 @@ class OnboardingPopupPresenter {
 			),
 			'trial_landing' => array(
 				'info_id'    => TrialLanding::INFO_ID_ONBOARDING,
-				'token'      => $trial_token,
-				'return_url' => TrialLanding::onboarding_return_url(),
+				'return_url' => TrialLanding::onboarding_return_url( $trial_token ),
 				'base_url'   => TrialLanding::LANDING_BASE,
 			),
 			'steps'       => array(

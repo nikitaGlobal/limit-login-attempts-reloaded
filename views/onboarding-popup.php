@@ -241,14 +241,10 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
             const trialLanding = <?php echo wp_json_encode( $popup['trial_landing'] ); ?>;
 
             const buildTrialLandingUrl = function ( email ) {
-                const client = {
-                    url: trialLanding.return_url,
-                    email: email || '',
-                    token: trialLanding.token || ''
-                };
                 return trialLanding.base_url
                     + '?id=' + encodeURIComponent( trialLanding.info_id )
-                    + '&client=' + encodeURIComponent( JSON.stringify( client ) );
+                    + '&url=' + encodeURIComponent( trialLanding.return_url )
+                    + '&email=' + encodeURIComponent( email || '' );
             };
 
             const scrubOnboardingReturnParams = function () {
