@@ -101,9 +101,9 @@ class OnboardingPopupPresenter {
 				'paragraphs_html'  => esc_html__( 'These powerful tools help stop brute force attacks before they happen, protecting your WordPress login from malicious bots and automated attacks.', 'limit-login-attempts-reloaded' )
 					. "                <br><br>\n\t\t\t\t" . esc_html__( 'Experience the strongest login protection available for WordPress and see the difference premium security can make.', 'limit-login-attempts-reloaded' )
 					. "                <br><br>\n\t\t\t\t" . esc_html__( 'You can return to the free version at any time.', 'limit-login-attempts-reloaded' ),
-			'cta'              => __( 'Would you like to start your free trial?', 'limit-login-attempts-reloaded' ),
-			'consent_label'    => __( 'I consent to my domain name and email address being sent to the Limit Login Attempts Reloaded server for trial account registration.', 'limit-login-attempts-reloaded' ),
-			'yes_label'        => __( 'Yes', 'limit-login-attempts-reloaded' ),
+				'cta'              => __( 'Would you like to start your free trial?', 'limit-login-attempts-reloaded' ),
+				'consent_label'    => __( 'I consent to my domain name and email address being sent to the Limit Login Attempts Reloaded server for trial account registration.', 'limit-login-attempts-reloaded' ),
+				'yes_label'        => __( 'Yes', 'limit-login-attempts-reloaded' ),
 				'no_label'         => __( 'No', 'limit-login-attempts-reloaded' ),
 				'terms'            => sprintf(
 					/* translators: %1$s: opening link tag, %2$s: closing link tag */

@@ -154,17 +154,17 @@ ob_start(); ?>
             <div class="field-desc-add">
 				<b><?php echo esc_html( $popup['step3']['cta'] ); ?></b>
             </div>
-            <div class="field-checkbox">
-                <input type="checkbox" id="llar-trial-consent" value="consent"/>
-                <span>
-                    <?php echo esc_html( $popup['step3']['consent_label'] ); ?>
-                </span>
-            </div>
+			<div class="field-checkbox">
+				<input type="checkbox" id="llar-trial-consent" value="consent"/>
+				<span>
+					<?php echo esc_html( $popup['step3']['consent_label'] ); ?>
+				</span>
+			</div>
         </div>
         <div class="llar-upgrade-subscribe">
             <div class="button_block-horizon">
-                <button class="button next_step menu__item button__transparent_orange llar-disabled" id="llar-limited-upgrade-subscribe">
-		            <?php echo esc_html( $popup['step3']['yes_label'] ); echo $spinner; ?>
+				<button class="button next_step menu__item button__transparent_orange llar-disabled" id="llar-limited-upgrade-subscribe">
+		            <?php echo esc_html( $popup['step3']['yes_label'] ); ?><?php echo $spinner; ?>
                 </button>
                 <button class="button next_step menu__item button__transparent_grey" id="llar-limited-upgrade-no_subscribe">
 		            <?php echo esc_html( $popup['step3']['no_label'] ); echo $spinner; ?>
@@ -289,24 +289,24 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
                     $( this ).find( spinner ).addClass( visibility );
                 } );
 
-                // Consent gate: Yes stays disabled until the consent checkbox
-                // is ticked.
-                const $trial_consent = $( '#llar-trial-consent' );
-                $trial_consent.off( 'change.llarTrial' ).on( 'change.llarTrial', function () {
-                    if ( $( this ).prop( 'checked' ) ) {
-                        $limited_upgrade_subscribe.removeClass( disabled );
-                    } else {
-                        $limited_upgrade_subscribe.addClass( disabled );
-                    }
-                } );
+				// Consent gate: Yes stays disabled until the consent checkbox
+				// is ticked.
+				const $trial_consent = $( '#llar-trial-consent' );
+				$trial_consent.off( 'change.llarTrial' ).on( 'change.llarTrial', function () {
+					if ( $( this ).prop( 'checked' ) ) {
+						$limited_upgrade_subscribe.removeClass( disabled );
+					} else {
+						$limited_upgrade_subscribe.addClass( disabled );
+					}
+				} );
 
                 $limited_upgrade_subscribe.off( 'click.llarTrial' ).on( 'click.llarTrial', function ( e ) {
                     e.preventDefault();
                     e.stopImmediatePropagation();
 
-                    if ( $limited_upgrade_subscribe.hasClass( disabled ) ) {
-                        return;
-                    }
+					if ( $limited_upgrade_subscribe.hasClass( disabled ) ) {
+						return;
+					}
 
                     $button_next.addClass( disabled );
                     $limited_upgrade_subscribe.addClass( disabled );
@@ -326,11 +326,11 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
 
                     llar_activate_license_key( trialReturn.setup_code )
                         .then( function () {
-                            // Re-enable the page before the completion step,
-                            // otherwise llar-disabled (pointer-events: none)
-                            // on <body> blocks the Go To Dashboard button.
-                            $body.removeClass( disabled );
-                            $( '.jconfirm-closeIcon' ).removeClass( hidden );
+							// Re-enable the page before the completion step,
+							// otherwise llar-disabled (pointer-events: none)
+							// on <body> blocks the Go To Dashboard button.
+							$body.removeClass( disabled );
+							$( '.jconfirm-closeIcon' ).removeClass( hidden );
                             onboardingCompleted = true;
                             thank_you_for_completing_setup();
                         } )
