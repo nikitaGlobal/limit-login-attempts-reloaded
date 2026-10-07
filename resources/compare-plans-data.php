@@ -20,6 +20,11 @@ if ( 'local' === $active_app ) {
 		'Personal' => 'https://www.limitloginattempts.com/info.php?id=29',
 		'Business' => 'https://www.limitloginattempts.com/info.php?id=30',
 	);
+} elseif ( '7 Day Trial' === $actual_plan ) {
+	$upgrade_urls = array(
+		'Personal' => 'https://www.limitloginattempts.com/info.php?id=39',
+		'Business' => 'https://www.limitloginattempts.com/info.php?id=40',
+	);
 } elseif ( 'Micro Cloud' === $actual_plan ) {
 	$upgrade_urls = array(
 		'Personal' => add_query_arg( 'id', '31', $this->info_upgrade_url() ),
@@ -34,6 +39,16 @@ if ( 'local' === $active_app ) {
 
 $buttons_row = array();
 foreach ( $display_plans as $plan ) {
+
+	if ( '7 Day Trial' === $plan ) {
+		// The trial column is "Active" only for trial users; it is never
+		// installable or upgradable from other plans.
+		$buttons_row[ $plan ] = ( '7 Day Trial' === $actual_plan )
+			? '<a class="button menu__item button__transparent_orange llar-disabled">' . esc_html__( 'Active', 'limit-login-attempts-reloaded' ) . '</a>'
+			: '';
+		continue;
+	}
+
 	$plan_rate = isset( $plans[ $plan ] ) ? $plans[ $plan ] : $plans['Free'];
 
 	if ( $plan_rate < $actual_rate ) {
@@ -118,5 +133,15 @@ $compare_list = array(
 	) + $paid_row,
 	'buttons_footer' => $buttons_row,
 );
+
+// The 7 Day Trial column mirrors the Business column for every feature row
+// (no pricing card and no plan description — those stay Business-only).
+foreach ( $compare_list as $category => $row ) {
+	if ( in_array( $category, array( 'buttons_header', 'buttons_footer', 'pricing' ), true ) || ! isset( $row['Business'] ) ) {
+		continue;
+	}
+
+	$compare_list[ $category ]['7 Day Trial'] = $row['Business'];
+}
 
 return $compare_list;
