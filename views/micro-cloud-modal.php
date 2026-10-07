@@ -109,7 +109,6 @@ $micro_cloud_popup_content = ob_get_clean();
                     const url = new URL( window.location.href );
                     url.searchParams.delete( 'setup_code' );
                     url.searchParams.delete( 'llar_trial_token' );
-                    url.searchParams.delete( 'token' );
                     window.history.replaceState( {}, document.title, url.toString() );
                 } catch ( e ) {}
             };

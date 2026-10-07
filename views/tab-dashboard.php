@@ -58,7 +58,7 @@ if ( $dashboard['show_onboarding'] ) {
             </div>
             <div class="actions">
                 <div class="actions__buttons actions__buttons--centered">
-                    <a href="<?php echo esc_attr( $trial_modal['landing_url'] ); ?>"
+                    <a href="<?php echo esc_url( $trial_modal['landing_url'] ); ?>"
                        title="<?php echo esc_attr( $dashboard['trial_block']['cta_title'] ); ?>"
                        class="button menu__item button__orange button_micro_cloud link__style_unlink">
                         <?php echo $dashboard['trial_block']['cta_label']; ?>
