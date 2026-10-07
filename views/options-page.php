@@ -63,7 +63,72 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
 
 <div class="header_massage">
 	<?php
-	if ( $is_active_app_custom && $block_sub_group === 'Micro Cloud' && $is_almost_exhausted && $info_has_valid_data ) :
+	$is_trial_group = ( '7 Day Trial' === $block_sub_group );
+
+	if ( $is_active_app_custom && $is_trial_group && $is_almost_exhausted && $info_has_valid_data ) :
+
+	$notifications_message_shown = (int) Config::get( 'notifications_message_shown' );
+
+		if ( time() > $notifications_message_shown ) : ?>
+			<div id="llar-header-upgrade-premium-message" class="exhausted">
+				<p>
+					<span class="dashicons dashicons-superhero"></span>
+				<?php
+				printf(
+					esc_html__( '7 Day Trial: %1$s of %2$s requests used - cloud protection pauses at %2$s.', 'limit-login-attempts-reloaded' ),
+					esc_html( $request_usage ),
+					esc_html( $request_quota )
+				);
+				?>
+				<a class="button menu__item button__orange" href="<?php echo esc_url( add_query_arg( 'id', '41', $upgrade_premium_url ) ); ?>" target="_blank">
+					<?php esc_html_e( 'Upgrade', 'limit-login-attempts-reloaded' ); ?>
+				</a>
+				</p>
+				<div class="close">
+					<span class="dashicons dashicons-no-alt"></span>
+				</div>
+			</div>
+		<?php endif; ?>
+
+	<?php elseif ( $is_active_app_custom && $is_trial_group && ( $is_exhausted || $info_is_cloud_unavailable ) ) :
+
+		$notifications_message_shown = (int) Config::get( 'notifications_message_shown' );
+
+		if ( time() > $notifications_message_shown ) : ?>
+			<div id="llar-header-upgrade-premium-message" class="exhausted">
+				<p>
+					<span class="dashicons dashicons-superhero"></span>
+				<?php
+				printf(
+					__( 'Your 7 day free trial has ended and the plugin has reverted to the free version. <a href="%s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
+					esc_url( add_query_arg( 'id', '41', $upgrade_premium_url ) )
+				);
+				?>
+				</p>
+				<div class="close">
+					<span class="dashicons dashicons-no-alt"></span>
+				</div>
+			</div>
+		<?php endif; ?>
+
+	<?php elseif ( $is_active_app_custom && $is_trial_group && $info_has_valid_data ) : ?>
+		<div id="llar-header-upgrade-mc-message">
+			<p>
+				<span class="dashicons dashicons-superhero"></span>
+			<?php
+			printf(
+				esc_html__( '7 Day Trial: %1$s of %2$s requests used this month.', 'limit-login-attempts-reloaded' ),
+				esc_html( $request_usage ),
+				esc_html( $request_quota )
+			);
+			?>
+			<a class="button menu__item button__orange" href="<?php echo esc_url( add_query_arg( 'id', '41', $upgrade_premium_url ) ); ?>" target="_blank">
+				<?php esc_html_e( 'Upgrade', 'limit-login-attempts-reloaded' ); ?>
+			</a>
+			</p>
+		</div>
+
+	<?php elseif ( $is_active_app_custom && $block_sub_group === 'Micro Cloud' && $is_almost_exhausted && $info_has_valid_data ) :
 
 	$notifications_message_shown = (int) Config::get( 'notifications_message_shown' );
 
@@ -97,7 +162,7 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
                     <span class="dashicons dashicons-superhero"></span>
                     <?php
 					echo sprintf(
-                        __( 'Your 14 day free trial has ended and the plugin has reverted to the free version. <a href="%s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
+                        __( 'Your 7 day free trial has ended and the plugin has reverted to the free version. <a href="%s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
                         add_query_arg('id', '4', $upgrade_premium_url) );
                     ?>
                 </p>

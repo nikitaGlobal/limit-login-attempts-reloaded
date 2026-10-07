@@ -105,10 +105,8 @@ class AdminUiController {
 
 	private function get_submenu_items()
 	{
-		$active_app        = Config::get( Config::OPTION_ACTIVE_APP );
-		$app_setup_code    = Config::get( 'app_setup_code' );
+		$active_app           = Config::get( Config::OPTION_ACTIVE_APP );
 		$is_cloud_app_enabled = $active_app === 'custom';
-		$is_local_empty_setup_code = ( $active_app === 'local' && empty( $app_setup_code ) );
 
 		$submenu_items = array(
 			array(
@@ -148,24 +146,6 @@ class AdminUiController {
 				'url'   => '&tab=help'
 			)
 		);
-
-		if ( ! $is_cloud_app_enabled ) {
-
-			// Trial already burned on the cloud side — stop offering it.
-			$is_trial_expired = $is_local_empty_setup_code && (bool) Config::get( 'app_trial_expired' );
-
-			$slug       = '&tab=dashboard#modal_micro_cloud';
-			$name_item  = $is_local_empty_setup_code ? __( 'Free Trial', 'limit-login-attempts-reloaded' ) : __( 'Premium', 'limit-login-attempts-reloaded' );
-			$url_item   = $is_local_empty_setup_code ? $slug : '&tab=premium';
-
-			if ( ! $is_trial_expired ) {
-				$submenu_items[] = array(
-					'id'    => 'premium',
-					'name'  => __( $name_item, 'limit-login-attempts-reloaded' ),
-					'url'   => $url_item,
-				);
-			}
-		}
 
 		return $submenu_items;
 	}

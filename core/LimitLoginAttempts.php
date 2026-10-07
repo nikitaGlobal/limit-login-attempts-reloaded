@@ -262,6 +262,10 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			'name' => 'Micro Cloud',
 			'rate' => 20,
 		),
+		'trial'      => array(
+			'name' => '7 Day Trial',
+			'rate' => 20,
+		),
 		'personal'  => array(
 			'name' => 'Personal',
 			'rate' => 25,
