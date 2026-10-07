@@ -77,31 +77,6 @@ class TrialLanding {
 	}
 
 	/**
-	 * Peek at a token without consuming it (for soft checks).
-	 *
-	 * @param string $token Token from the return URL.
-	 * @return array|false
-	 */
-	public static function peek_token( $token ) {
-		$token = sanitize_text_field( $token );
-		if ( '' === $token ) {
-			return false;
-		}
-
-		$data = get_transient( self::TRANSIENT_PREFIX . $token );
-		if ( empty( $data ) || ! is_array( $data ) ) {
-			return false;
-		}
-
-		$user_id = get_current_user_id();
-		if ( ! $user_id || (int) $data['user_id'] !== (int) $user_id ) {
-			return false;
-		}
-
-		return $data;
-	}
-
-	/**
 	 * Build the outbound info.php URL with separate url and email params.
 	 *
 	 * The one-time nonce is embedded into the url= parameter (not passed
@@ -138,7 +113,7 @@ class TrialLanding {
 	 * @param string $token      Nonce to embed (skipped when empty).
 	 * @return string
 	 */
-	public static function with_token( $return_url, $token ) {
+	private static function with_token( $return_url, $token ) {
 		if ( '' === $token ) {
 			return $return_url;
 		}
@@ -225,12 +200,8 @@ class TrialLanding {
 		$onboarding = isset( $_GET['onboarding'] ) ? sanitize_text_field( wp_unslash( $_GET['onboarding'] ) ) : '';
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$setup_code = isset( $_GET['setup_code'] ) ? sanitize_text_field( wp_unslash( $_GET['setup_code'] ) ) : '';
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- nonce rides inside the url= the landing returns to.
 		$token = isset( $_GET[ self::TOKEN_QUERY_ARG ] ) ? sanitize_text_field( wp_unslash( $_GET[ self::TOKEN_QUERY_ARG ] ) ) : '';
-		if ( '' === $token && isset( $_GET['token'] ) ) {
-			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- alias if landing echoes client.token as token=
-			$token = sanitize_text_field( wp_unslash( $_GET['token'] ) );
-		}
 
 		if ( 'trial' === $onboarding ) {
 			$result['open_trial_step'] = true;

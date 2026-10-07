@@ -258,7 +258,6 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
                     const url = new URL( window.location.href );
                     url.searchParams.delete( 'setup_code' );
                     url.searchParams.delete( 'llar_trial_token' );
-                    url.searchParams.delete( 'token' );
                     window.history.replaceState( {}, document.title, url.toString() );
                 } catch ( e ) {}
             };
