@@ -63,7 +63,7 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
 
 <div class="header_massage">
 	<?php
-	$is_trial_group = ( '7 Day Trial' === $block_sub_group );
+	$is_trial_group = ( LimitLoginAttempts::trial_plan_name() === $block_sub_group );
 
 	if ( $is_active_app_custom && $is_trial_group && $is_almost_exhausted && $info_has_valid_data ) :
 
@@ -75,7 +75,9 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
 					<span class="dashicons dashicons-superhero"></span>
 				<?php
 				printf(
-					esc_html__( '7 Day Trial: %1$s of %2$s requests used - cloud protection pauses at %2$s.', 'limit-login-attempts-reloaded' ),
+					/* translators: 1: trial label, 2: requests used, 3: monthly quota */
+					esc_html__( '%1$s: %2$s of %3$s requests used - cloud protection pauses at %3$s.', 'limit-login-attempts-reloaded' ),
+					esc_html( LimitLoginAttempts::trial_label() ),
 					esc_html( $request_usage ),
 					esc_html( $request_quota )
 				);
@@ -100,7 +102,9 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
 					<span class="dashicons dashicons-superhero"></span>
 				<?php
 				printf(
-					__( 'Your 7 day free trial has ended and the plugin has reverted to the free version. <a href="%s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
+					/* translators: 1: trial length in days, 2: upgrade URL */
+					__( 'Your %1$d day free trial has ended and the plugin has reverted to the free version. <a href="%2$s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
+					LimitLoginAttempts::TRIAL_DAYS,
 					esc_url( add_query_arg( 'id', '41', $upgrade_premium_url ) )
 				);
 				?>
@@ -117,7 +121,9 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
 				<span class="dashicons dashicons-superhero"></span>
 			<?php
 			printf(
-				esc_html__( '7 Day Trial: %1$s of %2$s requests used this month.', 'limit-login-attempts-reloaded' ),
+				/* translators: 1: trial label, 2: requests used, 3: monthly quota */
+				esc_html__( '%1$s: %2$s of %3$s requests used this month.', 'limit-login-attempts-reloaded' ),
+				esc_html( LimitLoginAttempts::trial_label() ),
 				esc_html( $request_usage ),
 				esc_html( $request_quota )
 			);
@@ -161,9 +167,11 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
                 <p>
                     <span class="dashicons dashicons-superhero"></span>
                     <?php
-					echo sprintf(
-                        __( 'Your 7 day free trial has ended and the plugin has reverted to the free version. <a href="%s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
-                        add_query_arg('id', '4', $upgrade_premium_url) );
+					printf(
+                        /* translators: 1: trial length in days, 2: upgrade URL */
+                        __( 'Your %1$d day free trial has ended and the plugin has reverted to the free version. <a href="%2$s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
+                        LimitLoginAttempts::TRIAL_DAYS,
+                        esc_url( add_query_arg('id', '4', $upgrade_premium_url) ) );
                     ?>
                 </p>
                 <div class="close">

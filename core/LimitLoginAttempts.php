@@ -263,7 +263,6 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 			'rate' => 20,
 		),
 		'trial'      => array(
-			'name' => '7 Day Trial',
 			'rate' => 20,
 		),
 		'personal'  => array(
@@ -294,6 +293,10 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 
 	public function __construct() {
 		self::$instance = $this;
+
+		// The trial plan name derives from TRIAL_DAYS (property initializers
+		// cannot call methods, so it is set here).
+		$this->plans['trial']['name'] = self::trial_plan_name();
 
 		Config::init();
 		Http::init();
@@ -1489,6 +1492,32 @@ class LimitLoginAttempts implements OptionsPageUriProvider {
 		}
 
 		return $plans;
+	}
+
+	/**
+	 * Free trial length in days — the single source of truth for every
+	 * trial string in the plugin (titles, buttons, banners, plan name).
+	 */
+	const TRIAL_DAYS = 7;
+
+	/**
+	 * Canonical (untranslated) trial plan name. Doubles as the logic key
+	 * compared against plan_name_match() output, so it must stay literal.
+	 *
+	 * @return string
+	 */
+	public static function trial_plan_name() {
+		return sprintf( '%d Day Trial', self::TRIAL_DAYS );
+	}
+
+	/**
+	 * Translated trial label for display (buttons, badges, banners).
+	 *
+	 * @return string
+	 */
+	public static function trial_label() {
+		/* translators: %d: trial length in days. */
+		return sprintf( __( '%d Day Trial', 'limit-login-attempts-reloaded' ), self::TRIAL_DAYS );
 	}
 
 	private function info() {

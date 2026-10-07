@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Builds the view data for the Micro Cloud free trial modal (views/micro-cloud-modal.php).
  *
- * Outbound "Get Started" / "7 Day Trial" CTAs redirect to the marketing landing.
+ * Outbound "Get Started" / trial CTAs redirect to the marketing landing.
  * This modal is used on return when a valid setup_code + token are present.
  */
 class MicroCloudModalPresenter {
@@ -68,9 +68,17 @@ class MicroCloudModalPresenter {
 				'enabled'    => $can_activate,
 				'setup_code' => $can_activate ? $trial_return['setup_code'] : '',
 			),
-			'title'             => __( 'Start your 7 day free trial', 'limit-login-attempts-reloaded' ),
+			'title'             => sprintf(
+				/* translators: %d: trial length in days. */
+				__( 'Start your %d day free trial', 'limit-login-attempts-reloaded' ),
+				LimitLoginAttempts::TRIAL_DAYS
+			),
 			'description'       => __( 'Unlock full access to our premium features including our login firewall, IP Intelligence, and performance optimizer. No credit card required.', 'limit-login-attempts-reloaded' ),
-			'description_add'   => __( 'When your 7 day free trial ends, the app automatically reverts to the free version. You may upgrade to one of our premium plans at any time to keep cloud protection.', 'limit-login-attempts-reloaded' ),
+			'description_add'   => sprintf(
+				/* translators: %d: trial length in days. */
+				__( 'When your %d day free trial ends, the app automatically reverts to the free version. You may upgrade to one of our premium plans at any time to keep cloud protection.', 'limit-login-attempts-reloaded' ),
+				LimitLoginAttempts::TRIAL_DAYS
+			),
 			'card_title'        => __( 'How To Activate Your Free Trial', 'limit-login-attempts-reloaded' ),
 			'activating_text'   => __( 'Activating your free trial…', 'limit-login-attempts-reloaded' ),
 			'email_desc'        => __( 'Please enter the email that will receive activation confirmation', 'limit-login-attempts-reloaded' ),

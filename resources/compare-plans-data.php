@@ -8,7 +8,8 @@
  *
  */
 
-$min_plan = 'custom' === $active_app ? 'Micro Cloud' : 'Free';
+$min_plan         = 'custom' === $active_app ? 'Micro Cloud' : 'Free';
+$trial_plan_name  = $this->trial_plan_name();
 
 $plans       = $this->array_name_plans();
 $actual_plan = 'custom' === $active_app ? $this->info_sub_group() : $min_plan;
@@ -20,7 +21,7 @@ if ( 'local' === $active_app ) {
 		'Personal' => 'https://www.limitloginattempts.com/info.php?id=29',
 		'Business' => 'https://www.limitloginattempts.com/info.php?id=30',
 	);
-} elseif ( '7 Day Trial' === $actual_plan ) {
+} elseif ( $trial_plan_name === $actual_plan ) {
 	$upgrade_urls = array(
 		'Personal' => 'https://www.limitloginattempts.com/info.php?id=39',
 		'Business' => 'https://www.limitloginattempts.com/info.php?id=40',
@@ -40,10 +41,10 @@ if ( 'local' === $active_app ) {
 $buttons_row = array();
 foreach ( $display_plans as $plan ) {
 
-	if ( '7 Day Trial' === $plan ) {
+	if ( $trial_plan_name === $plan ) {
 		// The trial column is "Active" only for trial users; it is never
 		// installable or upgradable from other plans.
-		$buttons_row[ $plan ] = ( '7 Day Trial' === $actual_plan )
+		$buttons_row[ $plan ] = ( $trial_plan_name === $actual_plan )
 			? '<a class="button menu__item button__transparent_orange llar-disabled">' . esc_html__( 'Active', 'limit-login-attempts-reloaded' ) . '</a>'
 			: '';
 		continue;
@@ -134,14 +135,14 @@ $compare_list = array(
 	'buttons_footer' => $buttons_row,
 );
 
-// The 7 Day Trial column mirrors the Business column for every feature row
+// The trial column mirrors the Business column for every feature row
 // (no pricing card and no plan description — those stay Business-only).
 foreach ( $compare_list as $category => $row ) {
 	if ( in_array( $category, array( 'buttons_header', 'buttons_footer', 'pricing' ), true ) || ! isset( $row['Business'] ) ) {
 		continue;
 	}
 
-	$compare_list[ $category ]['7 Day Trial'] = $row['Business'];
+	$compare_list[ $category ][ $trial_plan_name ] = $row['Business'];
 }
 
 return $compare_list;

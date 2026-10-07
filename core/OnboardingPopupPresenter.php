@@ -89,7 +89,11 @@ class OnboardingPopupPresenter {
 				'skip_label'       => __( 'Skip', 'limit-login-attempts-reloaded' ),
 			),
 			'step3'       => array(
-				'title'            => __( 'Unlock Premium FREE for 7 Days', 'limit-login-attempts-reloaded' ),
+				'title'            => sprintf(
+					/* translators: %d: trial length in days. */
+					__( 'Unlock Premium FREE for %d Days', 'limit-login-attempts-reloaded' ),
+					LimitLoginAttempts::TRIAL_DAYS
+				),
 				'subtitle'         => __( 'No Credit Card Required', 'limit-login-attempts-reloaded' ),
 				'pitch'            => wp_kses_post(
 					sprintf(

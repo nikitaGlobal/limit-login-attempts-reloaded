@@ -39,7 +39,7 @@ $is_premium = ( $is_active_app_custom && $current_plan_rate >= $plans[ $min_plan
         <div class="section-1">
             <div class="text">
                 <div class="title">
-                    <?php if ( $block_sub_group && ( 'Micro Cloud' === $block_sub_group || '7 Day Trial' === $block_sub_group ) ) : ?>
+                    <?php if ( $block_sub_group && ( 'Micro Cloud' === $block_sub_group || \LLAR\Core\LimitLoginAttempts::trial_plan_name() === $block_sub_group ) ) : ?>
                         <?php _e( 'Limit Login Attempts Reloaded <strong>Free Trial</strong>', 'limit-login-attempts-reloaded' ); ?>
                     <?php else : ?>
 	                    <?php _e( 'Limit Login Attempts Reloaded <strong>Premium</strong>', 'limit-login-attempts-reloaded' ); ?>
@@ -48,7 +48,7 @@ $is_premium = ( $is_active_app_custom && $current_plan_rate >= $plans[ $min_plan
             </div>
             <?php if ( ! $is_premium ) : ?>
                 <div class="action">
-                    <a class="button menu__item button__orange" href="<?php echo esc_url( ( '7 Day Trial' === $block_sub_group )
+                    <a class="button menu__item button__orange" href="<?php echo esc_url( ( \LLAR\Core\LimitLoginAttempts::trial_plan_name() === $block_sub_group )
                         ? add_query_arg( 'id', '41', $this->info_upgrade_url() )
                         : ( ( $block_sub_group === 'Micro Cloud' )
                             ? add_query_arg( 'id', '31', $this->info_upgrade_url() )
@@ -65,8 +65,11 @@ $is_premium = ( $is_active_app_custom && $current_plan_rate >= $plans[ $min_plan
                     <?php _e( 'If you purchased a premium plan, check your email for setup instructions (Setup Code included)', 'limit-login-attempts-reloaded' ); ?>
                 </span>
             <?php elseif( $block_sub_group ) : ?>
-                <?php if( 'Micro Cloud' === $block_sub_group || '7 Day Trial' === $block_sub_group ) : ?>
-                    <?php _e( 'You are currently using the 7 day free trial, which provides access to the premium cloud app on a limited basis. To prevent interruption, upgrade to one of our paid plans below.', 'limit-login-attempts-reloaded' ); ?>
+                <?php if( 'Micro Cloud' === $block_sub_group || \LLAR\Core\LimitLoginAttempts::trial_plan_name() === $block_sub_group ) : ?>
+                    <?php
+                    /* translators: %d: trial length in days. */
+                    printf( esc_html__( 'You are currently using the %d day free trial, which provides access to the premium cloud app on a limited basis. To prevent interruption, upgrade to one of our paid plans below.', 'limit-login-attempts-reloaded' ), \LLAR\Core\LimitLoginAttempts::TRIAL_DAYS );
+                    ?>
                 <?php else : ?>
                     <?php
                     /* translators: %s: current plan name. */
@@ -96,8 +99,8 @@ $is_premium = ( $is_active_app_custom && $current_plan_rate >= $plans[ $min_plan
     </h3>
 
     <?php
-        $plans_order  = array( 'Free', '7 Day Trial', 'Personal', 'Premium', 'Premium +', 'Professional', 'Business', 'Agency' );
-        $base_plans   = array( 'Free', '7 Day Trial', 'Personal', 'Business' );
+        $plans_order  = array( 'Free', \LLAR\Core\LimitLoginAttempts::trial_plan_name(), 'Personal', 'Premium', 'Premium +', 'Professional', 'Business', 'Agency' );
+        $base_plans   = array( 'Free', \LLAR\Core\LimitLoginAttempts::trial_plan_name(), 'Personal', 'Business' );
         $extra_plans  = array( 'Micro Cloud', 'Premium', 'Premium +', 'Professional', 'Agency' );
 
         $actual_plan = ( 'custom' === $active_app ) ? $block_sub_group : 'Free';
