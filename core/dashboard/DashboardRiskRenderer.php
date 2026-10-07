@@ -169,7 +169,7 @@ class DashboardRiskRenderer {
 	private function get_micro_cloud_recommendation_html() {
 		return sprintf(
 			__(
-				'Based on your level of brute force activity, we recommend <a class="llar_orange %s">starting a free 14 day trial</a> to access features to reduce failed logins and improve site performance.',
+				'Based on your level of brute force activity, we recommend <a class="llar_orange %s">starting a free 7 day trial</a> to access features to reduce failed logins and improve site performance.',
 				'limit-login-attempts-reloaded'
 			),
 			'button_micro_cloud'
@@ -439,14 +439,14 @@ class DashboardRiskRenderer {
 			'show_trial_block'           => ! $is_active_app_custom && empty( $setup_code ),
 			'show_premium_disabled_block' => ! $is_active_app_custom && ! empty( $setup_code ),
 			'trial_block'         => array(
-				'title'     => __( 'Experience Premium Free for 14 Days', 'limit-login-attempts-reloaded' ),
+				'title'     => __( 'Experience Premium Free for 7 Days', 'limit-login-attempts-reloaded' ),
 				'bullets'   => array(
 					__( 'No credit card required. Automatically revert to the free version when the trial is complete.', 'limit-login-attempts-reloaded' ),
 					__( 'Unlock advanced security features including Cloud Protection, Block by Country, Login Firewall, and Successful Login Logs', 'limit-login-attempts-reloaded' ),
 					__( 'Stop brute force attacks before they reach your login page with one of the strongest login protection systems for WordPress', 'limit-login-attempts-reloaded' ),
 				),
-				'cta_title' => __( '14 Day Trial', 'limit-login-attempts-reloaded' ),
-				'cta_label' => __( '14 Day Trial', 'limit-login-attempts-reloaded' ),
+				'cta_title' => __( '7 Day Trial', 'limit-login-attempts-reloaded' ),
+				'cta_label' => __( '7 Day Trial', 'limit-login-attempts-reloaded' ),
 			),
 			'premium_disabled_block' => array(
 				'title'        => __( 'Premium Protection Disabled', 'limit-login-attempts-reloaded' ),

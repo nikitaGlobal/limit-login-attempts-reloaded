@@ -315,7 +315,7 @@ $url_try_for_free_cloud     = ( $is_active_app_custom ) ? $this->info_upgrade_ur
 		                    ?>
                             <a href="<?php echo esc_attr( $trial_modal['landing_url'] ); ?>"
                                class="button menu__item button_micro_cloud button__transparent_orange">
-			                    <?php _e( '14 Day Trial', 'limit-login-attempts-reloaded' ); ?>
+			                    <?php _e( '7 Day Trial', 'limit-login-attempts-reloaded' ); ?>
                             </a>
                         <?php elseif ( $block_sub_group === 'Micro Cloud' ) : ?>
                             <a href="<?php echo esc_url( $url_try_for_free_cloud ) ?>" class="button menu__item button__transparent_orange" target="_blank">
@@ -424,7 +424,7 @@ $url_try_for_free_cloud     = ( $is_active_app_custom ) ? $this->info_upgrade_ur
 	                            <?php if ( $is_local_empty_setup_code && $trial_modal ) : ?>
                                     <a href="<?php echo esc_attr( $trial_modal['landing_url'] ); ?>"
                                        class="button menu__item button_micro_cloud button__transparent_orange mt-1_5">
-			                            <?php _e( '14 Day Trial', 'limit-login-attempts-reloaded' ); ?>
+			                            <?php _e( '7 Day Trial', 'limit-login-attempts-reloaded' ); ?>
                                     </a>
 	                            <?php elseif ( $block_sub_group === 'Micro Cloud' ) : ?>
                                     <a href="<?php echo esc_url( add_query_arg('id', '6', $url_try_for_free_cloud)) ?>" class="button menu__item button__transparent_orange mt-1_5" target="_blank">
