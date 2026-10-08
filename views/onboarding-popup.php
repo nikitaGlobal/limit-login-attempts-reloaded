@@ -105,7 +105,10 @@ ob_start(); ?>
     </div>
     <div class="card mx-auto">
         <div class="field-wrap">
-            <div class="field-email">
+            <div class="field-email field-email--inline">
+                <label class="field-email__label" for="llar-subscribe-email">
+					<?php echo esc_html( $popup['step2']['email_label'] ); ?>
+                </label>
                 <input type="text" class="input_border" id="llar-subscribe-email" placeholder="<?php echo esc_attr( $popup['step2']['email_placeholder'] ); ?>"
                        value="<?php echo esc_attr( $popup['admin_email'] ); ?>">
             </div>
@@ -154,7 +157,10 @@ ob_start(); ?>
             <div class="field-desc-add">
 				<b><?php echo esc_html( $popup['step3']['cta'] ); ?></b>
             </div>
-            <div class="field-email llar-trial-email">
+            <div class="field-email field-email--inline llar-trial-email">
+                <label class="field-email__label" for="llar-trial-email">
+					<?php echo esc_html( $popup['step3']['email_label'] ); ?>
+                </label>
                 <input type="email" class="input_border" id="llar-trial-email" placeholder="<?php echo esc_attr( $popup['step3']['email_placeholder'] ); ?>"
                        value="<?php echo esc_attr( $popup['admin_email'] ); ?>">
             </div>
@@ -166,14 +172,14 @@ ob_start(); ?>
 			</div>
         </div>
         <div class="llar-upgrade-subscribe">
-            <div class="button_block-horizon llar-trial-yes-row">
-				<button class="button next_step menu__item button__transparent_orange llar-disabled llar-trial-button-wide" id="llar-limited-upgrade-subscribe">
-		            <?php echo esc_html( $popup['step3']['yes_label'] ); ?><?php echo $spinner; ?>
+            <div class="button_block-horizon button_block-horizon--trial">
+				<button class="button next_step menu__item button__transparent_orange button--fit llar-disabled" id="llar-limited-upgrade-subscribe">
+		            <?php echo esc_html( $popup['step3']['yes_label'] ); ?>
+                    <span class="dashicons dashicons-external" aria-hidden="true"></span>
+                    <?php echo $spinner; ?>
                 </button>
-            </div>
-            <div class="button_block-horizon llar-trial-no-row">
-                <button class="button next_step menu__item button__transparent_grey" id="llar-limited-upgrade-no_subscribe">
-		            <?php echo esc_html( $popup['step3']['no_label'] ); echo $spinner; ?>
+                <button type="button" class="button next_step llar-onboarding-skip" id="llar-limited-upgrade-no_subscribe">
+		            <?php echo esc_html( $popup['step3']['skip_label'] ); ?>
                 </button>
             </div>
             <div class="explanations">
@@ -282,16 +288,19 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
                 const $button_next = $( '.button.next_step' );
                 const $button_skip = $button_next.filter( '.button-skip' );
                 const $description = $( '#llar-description-step-3' );
+                const $trial_email = $( '#llar-trial-email' );
                 const spinner = '.preloader-wrapper .spinner';
 
                 if ( email === '' || email === null ) {
                     email = '<?php echo esc_js( $popup['admin_email'] ); ?>';
                 }
 
+                if ( $trial_email.length && email ) {
+                    $trial_email.val( email );
+                }
+
                 $limited_upgrade_no_subscribe.off( 'click.llarTrial' ).on( 'click.llarTrial', function () {
                     $( this ).addClass( disabled );
-                    $limited_upgrade_no_subscribe.addClass( disabled );
-                    $( this ).find( spinner ).addClass( visibility );
                 } );
 
 				// Consent gate: Yes stays disabled until the consent checkbox
@@ -313,14 +322,20 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
 						return;
 					}
 
-					// PR #322: the editable email box wins over the step-2
-					// value — the user may correct it right before leaving.
-					const trial_email = ( $( '#llar-trial-email' ).val() || '' ).trim();
+					// Editable email box wins over the step-2 value.
+					const trialEmail = $trial_email.length
+						? $trial_email.val().trim()
+						: email;
+
+					if ( ! llar_is_valid_email( trialEmail ) ) {
+						$trial_email.trigger( 'focus' );
+						return;
+					}
 
                     $button_next.addClass( disabled );
                     $limited_upgrade_subscribe.addClass( disabled );
                     $( this ).find( spinner ).addClass( visibility );
-                    window.location.href = buildTrialLandingUrl( trial_email || email );
+                    window.location.href = buildTrialLandingUrl( trialEmail );
                 } );
 
                 if ( trialReturn.can_activate && trialReturn.setup_code ) {

@@ -81,12 +81,13 @@ class OnboardingPopupPresenter {
 				'skip_cta'         => __( 'No thank you, let\'s continue', 'limit-login-attempts-reloaded' ),
 			),
 			'step2'       => array(
-				'title'            => __( 'Notification Settings', 'limit-login-attempts-reloaded' ),
+				'title'             => __( 'Notification Settings', 'limit-login-attempts-reloaded' ),
+				'email_label'       => __( 'Your Email', 'limit-login-attempts-reloaded' ),
 				'email_placeholder' => __( 'Your email', 'limit-login-attempts-reloaded' ),
-				'desc'             => __( 'This email will receive notifications of unauthorized access to your website. You may turn this off in your settings.', 'limit-login-attempts-reloaded' ),
-				'checkbox_label'   => __( 'Sign me up for the LLAR newsletter to receive important security alerts, plugin updates, and helpful guides.', 'limit-login-attempts-reloaded' ),
-				'continue_label'   => __( 'Continue', 'limit-login-attempts-reloaded' ),
-				'skip_label'       => __( 'Skip', 'limit-login-attempts-reloaded' ),
+				'desc'              => __( 'This email will receive notifications of unauthorized access to your website. You may turn this off in your settings.', 'limit-login-attempts-reloaded' ),
+				'checkbox_label'    => __( 'Sign me up for the LLAR newsletter to receive important security alerts, plugin updates, and helpful guides.', 'limit-login-attempts-reloaded' ),
+				'continue_label'    => __( 'Continue', 'limit-login-attempts-reloaded' ),
+				'skip_label'        => __( 'Skip', 'limit-login-attempts-reloaded' ),
 			),
 			'step3'       => array(
 				'title'            => sprintf(
@@ -105,11 +106,12 @@ class OnboardingPopupPresenter {
 				'paragraphs_html'  => esc_html__( 'These powerful tools help stop brute force attacks before they happen, protecting your WordPress login from malicious bots and automated attacks.', 'limit-login-attempts-reloaded' )
 					. "                <br><br>\n\t\t\t\t" . esc_html__( 'Experience the strongest login protection available for WordPress and see the difference premium security can make.', 'limit-login-attempts-reloaded' )
 					. "                <br><br>\n\t\t\t\t" . esc_html__( 'You can return to the free version at any time.', 'limit-login-attempts-reloaded' ),
-			'cta'              => __( 'Would you like to start your free trial?', 'limit-login-attempts-reloaded' ),
-			'email_placeholder' => __( 'Your email', 'limit-login-attempts-reloaded' ),
-			'consent_label'    => __( 'I consent to my domain name and email address being sent to the Limit Login Attempts Reloaded server for trial account registration.', 'limit-login-attempts-reloaded' ),
-			'yes_label'        => __( 'Yes, continue to the trial website', 'limit-login-attempts-reloaded' ),
-			'no_label'         => __( 'No', 'limit-login-attempts-reloaded' ),
+				'cta'              => __( 'Would you like to start your free trial?', 'limit-login-attempts-reloaded' ),
+				'email_label'      => __( 'Your Email', 'limit-login-attempts-reloaded' ),
+				'email_placeholder' => __( 'Your email', 'limit-login-attempts-reloaded' ),
+				'consent_label'    => __( 'I consent to my domain name and email address being sent to the Limit Login Attempts Reloaded server for trial account registration.', 'limit-login-attempts-reloaded' ),
+				'yes_label'        => __( 'Yes, continue to the trial website', 'limit-login-attempts-reloaded' ),
+				'skip_label'       => __( 'Skip', 'limit-login-attempts-reloaded' ),
 				'terms'            => sprintf(
 					/* translators: %1$s: opening link tag, %2$s: closing link tag */
 					esc_html__( 'We\'ll send you instructions via email to complete setup. You may opt-out of this program at any time. You accept our %1$s terms of service %2$s by participating in this program.', 'limit-login-attempts-reloaded' ),

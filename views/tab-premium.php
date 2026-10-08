@@ -99,9 +99,10 @@ $is_premium = ( $is_active_app_custom && $current_plan_rate >= $plans[ $min_plan
     </h3>
 
     <?php
-        $plans_order  = array( 'Free', \LLAR\Core\LimitLoginAttempts::trial_plan_name(), 'Personal', 'Premium', 'Premium +', 'Professional', 'Business', 'Agency' );
-        $base_plans   = array( 'Free', \LLAR\Core\LimitLoginAttempts::trial_plan_name(), 'Personal', 'Business' );
-        $extra_plans  = array( 'Micro Cloud', 'Premium', 'Premium +', 'Professional', 'Agency' );
+        $trial_plan_name = \LLAR\Core\LimitLoginAttempts::trial_plan_name();
+        $plans_order     = array( 'Free', $trial_plan_name, 'Personal', 'Premium', 'Premium +', 'Professional', 'Business', 'Agency' );
+        $base_plans      = array( 'Free', $trial_plan_name, 'Personal', 'Business' );
+        $extra_plans     = array( 'Micro Cloud', 'Premium', 'Premium +', 'Professional', 'Agency' );
 
         $actual_plan = ( 'custom' === $active_app ) ? $block_sub_group : 'Free';
 
@@ -109,6 +110,11 @@ $is_premium = ( $is_active_app_custom && $current_plan_rate >= $plans[ $min_plan
         foreach ( $plans_order as $plan ) {
             // Professional (Pro) users do not see Business as an upgrade path.
             if ( 'Business' === $plan && 'Professional' === $actual_plan ) {
+                continue;
+            }
+
+            // Trial column is only for Free users and active trial accounts.
+            if ( $trial_plan_name === $plan && 'Free' !== $actual_plan && $trial_plan_name !== $actual_plan ) {
                 continue;
             }
 

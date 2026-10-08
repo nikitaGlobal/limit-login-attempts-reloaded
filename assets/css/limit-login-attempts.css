@@ -3511,12 +3511,49 @@ button.llar_button:focus, #llar-setting-page button.button:focus, .llar_button:f
 .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon {
   display: flex;
   justify-content: center;
+  align-items: center;
   margin-top: 20px;
   gap: 10px;
 }
 .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon .button {
   font-size: 18px;
   padding: 11px 60px;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon--trial {
+  gap: 20px;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon--trial .button--fit {
+  width: auto;
+  min-width: 0;
+  padding: 11px 22px;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon--trial .button--fit .dashicons {
+  margin-left: 8px;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  vertical-align: middle;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon--trial .llar-onboarding-skip {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #A4A8B7 !important;
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon--trial .llar-onboarding-skip:hover, .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-horizon--trial .llar-onboarding-skip:focus {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #666D84 !important;
+  outline: none;
 }
 .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .button_block-single {
   margin-top: 20px;
@@ -3684,15 +3721,6 @@ button.llar_button:focus, #llar-setting-page button.button:focus, .llar_button:f
 .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .card .llar-trial-email {
   margin-top: 12px;
 }
-/* PR #322: Yes is the only button in its row and spans it; No sits below */
-.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .card .llar-trial-yes-row .button.llar-trial-button-wide {
-  width: 100%;
-  padding-left: 12px;
-  padding-right: 12px;
-}
-.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .card .llar-trial-no-row {
-  margin-top: 10px;
-}
 .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .field-wrap {
   margin-top: 23px;
 }
@@ -3742,6 +3770,25 @@ button.llar_button:focus, #llar-setting-page button.button:focus, .llar_button:f
 }
 .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .field-email .input_border {
   min-width: 100%;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .field-email--inline {
+  display: flex;
+  align-items: center;
+  column-gap: 16px;
+  width: 100%;
+  text-align: left;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .field-email--inline .field-email__label {
+  flex: 0 0 auto;
+  color: #2A2F40;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .field-email--inline .input_border {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
 }
 .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .field-desc, .toplevel_page_limit-login-attempts .jconfirm .jconfirm-box .llar-onboarding-popup__content .field-desc-add {
   color: #666D84;
