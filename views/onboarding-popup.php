@@ -154,6 +154,10 @@ ob_start(); ?>
             <div class="field-desc-add">
 				<b><?php echo esc_html( $popup['step3']['cta'] ); ?></b>
             </div>
+            <div class="field-email llar-trial-email">
+                <input type="email" class="input_border" id="llar-trial-email" placeholder="<?php echo esc_attr( $popup['step3']['email_placeholder'] ); ?>"
+                       value="<?php echo esc_attr( $popup['admin_email'] ); ?>">
+            </div>
 			<div class="field-checkbox">
 				<input type="checkbox" id="llar-trial-consent" value="consent"/>
 				<span>
@@ -162,10 +166,12 @@ ob_start(); ?>
 			</div>
         </div>
         <div class="llar-upgrade-subscribe">
-            <div class="button_block-horizon">
-				<button class="button next_step menu__item button__transparent_orange llar-disabled" id="llar-limited-upgrade-subscribe">
+            <div class="button_block-horizon llar-trial-yes-row">
+				<button class="button next_step menu__item button__transparent_orange llar-disabled llar-trial-button-wide" id="llar-limited-upgrade-subscribe">
 		            <?php echo esc_html( $popup['step3']['yes_label'] ); ?><?php echo $spinner; ?>
                 </button>
+            </div>
+            <div class="button_block-horizon llar-trial-no-row">
                 <button class="button next_step menu__item button__transparent_grey" id="llar-limited-upgrade-no_subscribe">
 		            <?php echo esc_html( $popup['step3']['no_label'] ); echo $spinner; ?>
                 </button>
@@ -307,10 +313,14 @@ add_filter( 'wp_kses_allowed_html', function( $tags, $context ) {
 						return;
 					}
 
+					// PR #322: the editable email box wins over the step-2
+					// value — the user may correct it right before leaving.
+					const trial_email = ( $( '#llar-trial-email' ).val() || '' ).trim();
+
                     $button_next.addClass( disabled );
                     $limited_upgrade_subscribe.addClass( disabled );
                     $( this ).find( spinner ).addClass( visibility );
-                    window.location.href = buildTrialLandingUrl( email );
+                    window.location.href = buildTrialLandingUrl( trial_email || email );
                 } );
 
                 if ( trialReturn.can_activate && trialReturn.setup_code ) {
