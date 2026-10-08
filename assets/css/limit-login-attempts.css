@@ -2867,9 +2867,26 @@ button.llar_button:focus, #llar-setting-page button.button:focus, .llar_button:f
 }
 #llar-dashboard-page .dashboard-section-1 .info-box-3 .actions {
   position: relative;
-  width: fit-content;
+  width: 100%;
+  max-width: 320px;
   left: 50%;
   transform: translateX(-50%);
+}
+#llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__consent {
+  display: flex;
+  align-items: flex-start;
+  color: #666D84;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: left;
+  margin: 0 0 12px;
+}
+#llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__consent input {
+  flex-shrink: 0;
+  margin: 2px 10px 0 0;
+}
+#llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__consent span {
+  display: inline-block;
 }
 #llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__buttons {
   display: flex;
@@ -2900,6 +2917,29 @@ button.llar_button:focus, #llar-setting-page button.button:focus, .llar_button:f
   #llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__buttons .menu__item {
     min-width: 160px;
   }
+}
+#llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__buttons .menu__item.button_trial_cta {
+  min-width: 134px;
+  max-width: 160px;
+  padding: 5px 10px;
+  font-size: 14px;
+  line-height: 1.35;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+@media screen and (max-width: 1599.5px) {
+  #llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__buttons .menu__item.button_trial_cta {
+    min-width: 110px;
+  }
+}
+#llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__buttons .menu__item.button_trial_cta.llar-disabled {
+  border-color: rgba(255, 124, 6, 0.4980392157) !important;
+  background: rgba(255, 124, 6, 0.4980392157) !important;
+  box-shadow: none !important;
+  opacity: 0.7;
+}
+#llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__buttons .menu__item.button_trial_cta:not(.llar-disabled):hover {
+  background: #F07200 !important;
+  box-shadow: 0 5px 10px 0 rgba(255, 124, 6, 0.4980392157);
 }
 #llar-dashboard-page .dashboard-section-1 .info-box-3 .actions__buttons .menu__item.button__transparent_orange {
   color: #FF7C06 !important;
