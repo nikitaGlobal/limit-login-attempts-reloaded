@@ -160,23 +160,23 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
 
 		$notifications_message_shown = (int) Config::get( 'notifications_message_shown' );
 
-        if ( time() > $notifications_message_shown ) : ?>
-            <div id="llar-header-upgrade-premium-message" class="exhausted">
-                <p>
-                    <span class="dashicons dashicons-superhero"></span>
-                    <?php
+		if ( time() > $notifications_message_shown ) :
+			?>
+			<div id="llar-header-upgrade-premium-message" class="exhausted">
+				<p>
+					<span class="dashicons dashicons-superhero"></span>
+					<?php
 					printf(
-                        /* translators: 1: trial length in days, 2: upgrade URL */
-                        __( 'Your %1$d day free trial has ended and the plugin has reverted to the free version. <a href="%2$s" class="link__style_color_inherit" target="_blank">Upgrade to Premium</a> to restore cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
-                        LimitLoginAttempts::TRIAL_DAYS,
-                        esc_url( add_query_arg('id', '4', $upgrade_premium_url) ) );
-                    ?>
-                </p>
-                <div class="close">
-                    <span class="dashicons dashicons-no-alt"></span>
-                </div>
-            </div>
-        <?php endif; ?>
+						__( 'You have exhausted your monthly quota of free Micro Cloud requests. The plugin has now reverted to the free version. <a href="%s" class="link__style_color_inherit" target="_blank">Upgrade to the premium</a> version today to maintain cloud protection and advanced features.', 'limit-login-attempts-reloaded' ),
+						esc_url( add_query_arg( 'id', '4', $upgrade_premium_url ) )
+					);
+					?>
+				</p>
+				<div class="close">
+					<span class="dashicons dashicons-no-alt"></span>
+				</div>
+			</div>
+		<?php endif; ?>
 
 	<?php elseif ( $is_active_app_custom && $block_sub_group === 'Micro Cloud' && $info_has_valid_data ) : ?>
 		<div id="llar-header-upgrade-mc-message">
