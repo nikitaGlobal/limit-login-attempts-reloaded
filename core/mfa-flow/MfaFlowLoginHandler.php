@@ -158,12 +158,24 @@ class MfaFlowLoginHandler {
 		if ( $user && ! empty( $user->roles ) && is_array( $user->roles ) ) {
 			$user_group = reset( $user->roles );
 		}
-		$redirect_to         = isset( $_REQUEST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_REQUEST['redirect_to'] ) ) : '';
+		// WP login uses redirect_to; WooCommerce (checkout/global form) uses redirect.
+		$redirect_to = isset( $_REQUEST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_REQUEST['redirect_to'] ) ) : '';
+		if ( '' === $redirect_to && ! empty( $_REQUEST['redirect'] ) ) {
+			$redirect_to = esc_url_raw( wp_unslash( $_REQUEST['redirect'] ) );
+		}
 		$cancel_url          = add_query_arg( 'llar_mfa_cancelled', '1', wp_login_url() );
 		$current_request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
 		$current_login_url   = '';
 		if ( is_string( $current_request_uri ) && '' !== $current_request_uri ) {
-			$current_login_url = home_url( $current_request_uri );
+			$current_login_url = esc_url_raw( home_url( $current_request_uri ) );
+		}
+		// Classic /my-account/ form often has no redirect field; WC then uses referer.
+		// After MFA the referer is the MFA app, so persist the login page as destination.
+		if ( '' === $redirect_to && '' !== $current_login_url ) {
+			$path = (string) wp_parse_url( $current_login_url, PHP_URL_PATH );
+			if ( '' !== $path && false === strpos( $path, 'wp-login.php' ) ) {
+				$redirect_to = $current_login_url;
+			}
 		}
 		$login_url = ( '' !== $current_login_url ) ? $current_login_url : wp_login_url();
 		$login_url = add_query_arg( 'llar_mfa', '1', $login_url );
