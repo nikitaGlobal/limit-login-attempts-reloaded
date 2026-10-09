@@ -301,19 +301,7 @@ class CloudApp
 	{
 		$this->prepare_settings( 'acl', $data );
 
-		$response = $this->request( 'acl', 'post', $data );
-
-		// The cloud reports trial_expired in context once two weeks passed
-		// since the trial account was created. Flag it in the DB so the UI
-		// can stop offering the free trial.
-		if ( is_array( $response )
-			&& isset( $response['context'] )
-			&& 'trial_expired' === $response['context']
-		) {
-			Config::update( 'app_trial_expired', 1 );
-		}
-
-		return $response;
+		return $this->request( 'acl', 'post', $data );
 	}
 
 	/**
@@ -391,6 +379,8 @@ class CloudApp
 
         $this->last_response_code = ! empty( $response['status'] ) ? $response['status'] : 0;
         $this->last_error_message = ! empty( $response['error'] ) ? $response['error'] : null;
+
+        $this->maybe_fallback_to_local_on_trial_expired( $response );
 
         $info = false;
         if ( ! empty( $response['data'] ) ) {
@@ -644,6 +634,8 @@ class CloudApp
 		$this->last_response_code = !empty( $response['status'] ) ? $response['status'] : 0;
 		$this->last_error_message = ! empty( $response['error'] ) ? $response['error'] : null;
 
+		$this->maybe_fallback_to_local_on_trial_expired( $response );
+
 		if ( 200 !== $response['status'] ) {
 			error_log( 'LLAR: CloudApp request failed: ' . $this->api . '/' . $method . ' ' . $this->last_response_code );
 			return false;
@@ -652,6 +644,40 @@ class CloudApp
 		$decoded = json_decode( $response['data'], true );
 
 		return Helpers::sanitize_stripslashes_deep( $decoded );
+	}
+
+	/**
+	 * Cloud 403 with context=trial_expired → switch active app to local.
+	 *
+	 * Covers POST /acl (via request()) and GET /info (via request_info()).
+	 *
+	 * @param array $response Raw Http response (status / data / error).
+	 *
+	 * @return void
+	 */
+	private function maybe_fallback_to_local_on_trial_expired( $response ) {
+		if ( ! is_array( $response ) ) {
+			return;
+		}
+
+		$status = ! empty( $response['status'] ) ? (int) $response['status'] : 0;
+		if ( 403 !== $status ) {
+			return;
+		}
+
+		if ( empty( $response['data'] ) ) {
+			return;
+		}
+
+		$decoded = json_decode( $response['data'], true );
+		if ( ! is_array( $decoded )
+			|| empty( $decoded['context'] )
+			|| 'trial_expired' !== $decoded['context']
+		) {
+			return;
+		}
+
+		Config::update( Config::OPTION_ACTIVE_APP, 'local' );
 	}
 
 	/**
