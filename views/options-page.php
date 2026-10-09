@@ -121,16 +121,14 @@ $request_quota = ( is_array( $requests ) && isset( $requests['quota'] ) ) ? (str
 				<span class="dashicons dashicons-superhero"></span>
 			<?php
 			printf(
-				/* translators: 1: trial label, 2: requests used, 3: monthly quota */
-				esc_html__( '%1$s: %2$s of %3$s requests used this month.', 'limit-login-attempts-reloaded' ),
+				/* translators: 1: trial label, 2: requests used, 3: monthly quota, 4: upgrade URL */
+				__( '%1$s: %2$s of %3$s requests used this month. <a href="%4$s" class="link__style_color_inherit" target="_blank">Upgrade to Personal for $1.25/mo for 50k requests.</a>', 'limit-login-attempts-reloaded' ),
 				esc_html( LimitLoginAttempts::trial_label() ),
 				esc_html( $request_usage ),
-				esc_html( $request_quota )
+				esc_html( $request_quota ),
+				esc_url( add_query_arg( 'id', '41', $upgrade_premium_url ) )
 			);
 			?>
-			<a class="button menu__item button__orange" href="<?php echo esc_url( add_query_arg( 'id', '41', $upgrade_premium_url ) ); ?>" target="_blank">
-				<?php esc_html_e( 'Upgrade', 'limit-login-attempts-reloaded' ); ?>
-			</a>
 			</p>
 		</div>
 

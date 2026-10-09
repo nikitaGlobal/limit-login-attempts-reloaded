@@ -23,8 +23,8 @@ if ( 'local' === $active_app ) {
 	);
 } elseif ( $trial_plan_name === $actual_plan ) {
 	$upgrade_urls = array(
-		'Personal' => 'https://www.limitloginattempts.com/info.php?id=39',
-		'Business' => 'https://www.limitloginattempts.com/info.php?id=40',
+		'Personal' => add_query_arg( 'id', '39', $this->info_upgrade_url() ),
+		'Business' => add_query_arg( 'id', '40', $this->info_upgrade_url() ),
 	);
 } elseif ( 'Micro Cloud' === $actual_plan ) {
 	$upgrade_urls = array(
