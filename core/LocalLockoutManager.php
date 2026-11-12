@@ -328,11 +328,12 @@ class LocalLockoutManager {
 		// Whitelisted IP/username must not burn the shared rate-limit budget
 		// (especially the IPv6 /64 key shared with neighbours). Early auth
 		// already removes wp_login_failed for allow-list hits; late WP 7.x
-		// fallbacks still call this method directly.
+		// fallbacks still call this method directly. Use the local allow-list
+		// resolver so email→user_login matches the early hook.
 		$raw_ip = $this->ip_resolver->get_address();
 		if (
 			$this->ip_resolver->is_ip_whitelisted( $raw_ip )
-			|| $this->is_username_whitelisted( $username )
+			|| $this->is_local_allowlisted_username( $username )
 		) {
 			return;
 		}
