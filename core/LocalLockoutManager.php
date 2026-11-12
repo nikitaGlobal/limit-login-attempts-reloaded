@@ -180,10 +180,25 @@ class LocalLockoutManager {
 	/**
 	 * Action when login attempt failed.
 	 *
-	 * @param string $username Login username.
+	 * @param string         $username Login username.
+	 * @param \WP_Error|null $error    Authentication error, when core provides it.
 	 * @return void
 	 */
-	public function limit_login_failed( $username ) {
+	public function limit_login_failed( $username, $error = null ) {
+		// A refusal caused by the second factor is not an authentication
+		// failure (the password was correct): counting it would burn the retry
+		// budget and lock the IP out — e.g. while the MFA service is down.
+		if ( self::is_mfa_refusal_error( $error ) ) {
+			return;
+		}
+
+		// The wp_login_failed contract passes a username string, but off-spec
+		// do_action callers forward their WP_Error instead (support topic
+		// error-1978). Scalar semantics mirror DigestStorage::to_safe_string():
+		// anything else counts as an empty username instead of fataling the
+		// digest tracking on the (string) cast (PHP 8).
+		$username = is_scalar( $username ) ? (string) $username : '';
+
 		// @temporary WP 7.0 compat — prevent double-recording when late authenticate fallback already fired.
 		// TODO: Remove after WP 7.1 release or when auth flow is stable.
 		if ( self::$failed_login_recorded_in_request ) {
@@ -191,6 +206,36 @@ class LocalLockoutManager {
 		}
 
 		$this->record_failed_login_attempt( $username );
+	}
+
+	/**
+	 * Whether an authentication error was raised by the MFA flow (correct
+	 * password, second factor could not be completed).
+	 *
+	 * @param mixed $error Error passed by core to wp_login_failed.
+	 * @return bool
+	 */
+	private static function is_mfa_refusal_error( $error ) {
+		if ( ! is_wp_error( $error ) ) {
+			return false;
+		}
+
+		// Explicit codes only: a future llar_mfa_* error code must not
+		// silently exempt its logins from lockout counting unless it is
+		// deliberately added here.
+		$refusal_codes = array(
+			'llar_mfa_unavailable',
+			'llar_mfa_rate_limited',
+			'llar_mfa_xmlrpc_required',
+		);
+
+		foreach ( $error->get_error_codes() as $code ) {
+			if ( in_array( $code, $refusal_codes, true ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**
